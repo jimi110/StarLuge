@@ -805,7 +805,7 @@ addEventListener('pagehide',saveGame);addEventListener('beforeunload',saveGame);
 
 /* ===== UPDATE ===== */
 function shSafe(){return state==='ship'&&!MP.role}
-function hurt(a,m,src){if(CFG.cre&&CFG.inv)return;if(ship.docked||ship.dead||shSafe()||state==='hangar'||(state==='pause'&&pauseFrom==='hangar')||(state==='warp'&&warp&&warp.t>=warp.t1))return;if(state==='ship'&&src!=null){shHitT=time;shHitA=src}if(m&&msgT<=0){msgT=4;toast(m)}if(on('def'))a*=.65;ship.hit=3;ship.hitA=src;sfx('h');let d=a;const s=Math.min(ship.shd,d);ship.shd-=s;d-=s;ship.hull-=d;if(d>0){const k=zonePart(src),b4=ship.parts[k];ship.parts[k]=Math.max(0,b4-d*1.5);if(b4>=40&&ship.parts[k]<40&&ship.parts[k]>0)toast('⚠ '+NM[k]+' dañado');if(b4>0&&ship.parts[k]<=0)toast('✖ '+NM[k]+' destruido')}
+function hurt(a,m,src){if((CFG.cre||MP.cre)&&CFG.inv)return;if(ship.docked||ship.dead||shSafe()||state==='hangar'||(state==='pause'&&pauseFrom==='hangar')||(state==='warp'&&warp&&warp.t>=warp.t1))return;if(state==='ship'&&src!=null){shHitT=time;shHitA=src}if(m&&msgT<=0){msgT=4;toast(m)}if(on('def'))a*=.65;ship.hit=3;ship.hitA=src;sfx('h');let d=a;const s=Math.min(ship.shd,d);ship.shd-=s;d-=s;ship.hull-=d;if(d>0){const k=zonePart(src),b4=ship.parts[k];ship.parts[k]=Math.max(0,b4-d*1.5);if(b4>=40&&ship.parts[k]<40&&ship.parts[k]>0)toast('⚠ '+NM[k]+' dañado');if(b4>0&&ship.parts[k]<=0)toast('✖ '+NM[k]+' destruido')}
   if(ship.hull<=0){ship.hull=0;ship.dead=1e9;ship.wreck=1;sel=null;ship.dest=ship.lock=ship.mt=ship.mc=ship.orbit=null;ship.wst='';boom(ship.x,ship.y,14,'#889');toast('Nave inutilizada: pide ayuda');if(state==='pause')closePause();else if(state==='ship')closeShip();wkOpen()}}
 function gHit(b){for(const n of npcs)if(n.team==='g'&&n.hp>0&&Math.hypot(n.x-b.x,n.y-b.y)<(n.rad||18)){b.life=0;n.hp-=b.d;boom(b.x,b.y,5,'#f66');if(b.rb)return 1;if(n.om){omAn=time+60;toast('⚠ Has atacado a la guardia de Omega')}else{wantT=time+60;if(!wanted){wanted=1;toast('⚠ ¡Has atacado a la guardia de Alfa! Ahora te atacan todos')}}if(n.hp<=0)boom(n.x,n.y,26,'#ff8a5c');return 1}return 0}
 function mineFx(o,c,dt,r){if(Math.random()<dt*45){const a=rnd(0,TAU),v=rnd(50,170);parts.push({x:o.x+Math.cos(a)*r*.7,y:o.y+Math.sin(a)*r*.7,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rnd(.2,.5),max:.5,c})}
@@ -844,6 +844,7 @@ function shipCol(dt){if(ship.wreck||ship.dead>0||ship.docked||state==='warp')ret
 
 /* ===== SINCRONIZACIÓN DEL MUNDO · el anfitrión manda; todos ven lo mismo ===== */
 const WRS=new Map();/* nave curada -> quien la cura (no se guarda en la partida) */
+var MPCS=null;
 var MP={role:null,code:'',id:'',name:'',ch:null,sb:null,peers:{},pend:{},msg:'',busy:0,joined:0,hostGone:0,share:1},MPR={};
 if(MPG)document.body.classList.add('mp');
 try{const v=localStorage.getItem('starluge_mpshare');if(v!==null)MP.share=v==='1'?1:0}catch(e){}
@@ -881,16 +882,17 @@ function mpWorld(){const t=performance.now(),P={},ps=mpPos(),k=++MPS.tk,full=MPS
   P.dr=derel.filter(d=>!d.dead).map(d=>[d.id,Math.round(d.x),Math.round(d.y),d.z]);
   P.lt=loot.filter(l=>mpD(l)<7500).map(l=>[l.id,Math.round(l.x),Math.round(l.y),l.v,Math.round(l.life)])}
  if(k%20===0||full)P.af=ANOM.map((o,i)=>o.found?i:-1).filter(i=>i>=0);
- if(GEV.cur!==MPS.lg||full||(k%20===0&&GEV.cur)){MPS.lg=GEV.cur;if(GEV.cur){const o={};for(const f in GEV.cur){const v=GEV.cur[f];if(typeof v==='number'||typeof v==='string'||typeof v==='boolean')o[f]=v}P.ge=o}else P.ge=0}
+ if(GEV.cur!==MPS.lg||full||(k%(GEV.cur&&GEV.cur.k==='cv'?6:20)===0&&GEV.cur)){MPS.lg=GEV.cur;if(GEV.cur){const o={};for(const f in GEV.cur){const v=GEV.cur[f];if(typeof v==='number'||typeof v==='string'||typeof v==='boolean')o[f]=v}P.ge=o}else P.ge=0}
  if(MPS.gq.length){P.gr=MPS.gq.filter(o=>o.k.life>0).map(o=>{const q=o.k;return[q.id,Math.round(q.x),Math.round(q.y),q.vx,q.vy,q.r,+q.life.toFixed(2),q.rot,q.vr,q.hot]});for(const o of MPS.gq)o.n--;MPS.gq=MPS.gq.filter(o=>o.n>0)}
  if(MPS.gx.length){P.gx=MPS.gx.map(o=>o.id);for(const o of MPS.gx)o.n--;MPS.gx=MPS.gx.filter(o=>o.n>0)}
- P.pv=MP.pvp?1:0;MPS.full=0;return P}
+ P.pv=MP.pvp?1:0;P.cr=MP.cre?1:0;MPS.full=0;return P}
 function mpEB(){for(const b of bullets)if((b.own==='e'||b.own==='g')&&!b.bid&&!b.gh){b.bid=++MPS.ebn;b.bk='e'+b.bid;MPS.eb.push([Math.round(b.x),Math.round(b.y),Math.round(b.vx),Math.round(b.vy),Math.round(b.d*10)/10,+b.life.toFixed(2),b.own==='e'?0:1,b.o&&b.o.id||0,b.bid])}}
 /* invitado: aplica la instantánea */
 function mpGuestNpcs(dt){const k=Math.min(1,9*dt);for(const n of npcs){if(n.tx==null)continue;n.x+=(n.tx+n.vx*.06-n.x)*k;n.y+=(n.ty+n.vy*.06-n.y)*k;n.a+=angDiff(n.a,n.ta)*k}}
 let mpRsT=0;
 function mpOnW(p){if(MP.role!=='guest'||!p)return;MPS.wt=performance.now();
  if(p.pv!=null){const v=p.pv?1:0;if(v!==(MP.pvp?1:0)){MP.pvp=v;toast(v?'⚔ Modo PVP: los jugadores pueden dispararse entre sí':'🤝 Modo PVE: los jugadores son aliados');if(typeof mpOpen!=='undefined'&&mpOpen)mpRender()}}
+ if(p.cr!=null){const v=p.cr?1:0;if(v!==(MP.cre?1:0)){MP.cre=v;mpCreApply();toast(v?'🛠 Modo creativo activado para toda la sala: todo infinito':'Modo creativo desactivado');if(typeof mpOpen!=='undefined'&&mpOpen)mpRender()}}
  if(p.n){const seen=new Set(),st=new Map(),cur=new Map(),out=[];if(p.ns)for(const q of p.ns)st.set(q.id,q);for(const n of npcs)if(n.id)cur.set(n.id,n);
   for(const q of p.n){const id=q[0];seen.add(id);let n=cur.get(id);
    if(!n){const s=st.get(id);if(!s){if(performance.now()-mpRsT>1500){mpRsT=performance.now();mpBc('rs',{})}continue}n=Object.assign({vx:0,vy:0,a:q[3],cd:0,home:A,x:q[1],y:q[2],hp:q[4]},s);cur.set(id,n)}else if(st.has(id))Object.assign(n,st.get(id));
@@ -910,7 +912,8 @@ function mpOnW(p){if(MP.role!=='guest'||!p)return;MPS.wt=performance.now();
  if(MPS.gs.size>600)MPS.gs=new Set([...MPS.gs].slice(-300));
  if(p.eb)for(const q of p.eb)if(!(q[8]&&MPS.bhd.has('e'+q[8])))bullets.push({x:q[0],y:q[1],vx:q[2],vy:q[3],d:q[4],life:q[5],own:q[6]?'g':'e',o:q[7]?npcs.find(n=>n.id===q[7])||null:null,bk:q[8]?'e'+q[8]:null})}
 function mpOnSt2(p){const h=MP.role==='host';
- if(h){if(p.gk)for(const id of p.gk){const i=gvRocks.findIndex(r=>r.id===id);if(i>=0)gvRocks.splice(i,1);MPS.gx.push({n:3,id})}
+ if(h){const gE=GEV.cur;if(p.gp&&gE&&gE.id===p.gp&&gE.k==='cv'&&gE.ph==='dem'){gE.ph='go';gE.t=0;gvMsg('✔ Peaje pagado por '+((MPR[p.id]&&MPR[p.id].n)||'un piloto')+': la flota se retira')}if(p.gn&&gE&&gE.id===p.gn&&gE.k==='cv')gvHostile('⚠ Un piloto se niega: la flota ataca');
+  if(p.gk)for(const id of p.gk){const i=gvRocks.findIndex(r=>r.id===id);if(i>=0)gvRocks.splice(i,1);MPS.gx.push({n:3,id})}
   if(p.tc&&GEV.cur&&GEV.cur.k==='tr')GEV.cur.cap=Math.max(0,GEV.cur.cap-p.tc);if(p.gd&&GEV.cur&&GEV.cur.id===p.gd)gvDone()}
  if(p.pb)for(const q of p.pb){const b={x:q[0],y:q[1],vx:q[2],vy:q[3],d:q[4],life:q[5],own:'p',o:null};if(q[6])b.wg=1;if(q[7])b.lz=1;if(q[8]){b.bk=p.id+'/'+q[8];if(MPS.bhd.has(b.bk))continue}if(h){b.by=p.id;b.rb=1}else b.gh=1;bullets.push(b)}
  if(h){if(p.mi)for(const[id,m]of p.mi)mpMineApply(id,m);if(p.mc)for(const[id,m]of p.mc){const c=cmts.find(q=>q.id===id);if(c)c.ore=Math.max(0,c.ore-m)}
@@ -1597,14 +1600,17 @@ function gevAreas(){const E=GEV.cur;if(!E)return[];if(E.sd==null)E.sd=Math.rando
 function gevDraw(X,Y,s,big){for(const a of gevAreas()){const px=X(a.x+Math.cos(a.sd)*a.r*.07),py=Y(a.y+Math.sin(a.sd)*a.r*.07),p=.5+.5*Math.sin(time*3);gevBlob(px,py,a.r*s*.95,a.sd);g.fillStyle='rgba('+a.c+','+(.12+.06*p)+')';g.fill();g.strokeStyle='rgba('+a.c+','+(.55+.25*p)+')';g.lineWidth=big?1.6:1;g.setLineDash([5,4]);g.stroke();g.setLineDash([]);txt(a.n,px,py+3,'rgba('+a.c+',.95)','center',big?11:7)}}
 function gevEnd(){npcs=npcs.filter(n=>!n.gv);gvRocks=[];gvDone()}
 function gvShips(n,hostile,ang,R){const dx=Math.cos(ang),dy=Math.sin(ang);for(let i=0;i<n;i++){const o=i-(n-1)/2,e=balE(mk('e',ship.x+dx*(R+Math.abs(o)*70)-dy*o*80,ship.y+dy*(R+Math.abs(o)*70)+dx*o*80,{x:ship.x,y:ship.y}));e.a=ang+Math.PI;e.slot=i/n*TAU;if(hostile)e.agr=2500;else e.gv=1;npcs.push(e)}}
-function gvHostile(m){for(const c of npcs)if(c.gv){c.gv=0;c.agr=2500}toast(m);gvDone()}
-function gvPay(){const E=GEV.cur;let n=E.need;for(const k of Object.keys(ship.inv).sort((a,b)=>(MIN[a]||[0,0,1])[2]-(MIN[b]||[0,0,1])[2])){const t=Math.min(n,ship.inv[k]);ship.inv[k]-=t;ship.ore=Math.max(0,ship.ore-t);n-=t}if(n>0)ship.scrap=Math.max(0,(ship.scrap|0)-Math.ceil(n));E.ph='go';E.t=0;toast('✔ Peaje pagado: la flota se retira')}
+function gvHostile(m){for(const c of npcs)if(c.gv){c.gv=0;c.agr=2500}gvMsg(m);gvDone()}
+function gvMsg(m){toast(m);if(MP.role==='host'&&GEV.cur&&GEV.cur.mp)mpBc('tt',{m})}
+function gvCtr(E,cs){let fx=0,fy=0;for(const c of cs){fx+=c.x;fy+=c.y}fx/=cs.length;fy/=cs.length;const pl=[{x:ship.x,y:ship.y},...mpTargets()].filter(q=>Math.hypot(q.x-fx,q.y-fy)<4500);if(!pl.length)return E.cc||{x:fx,y:fy,sep:0};let cx=0,cy=0;for(const q of pl){cx+=q.x;cy+=q.y}cx/=pl.length;cy/=pl.length;let sep=0;for(const q of pl)sep=Math.max(sep,Math.hypot(q.x-cx,q.y-cy));return E.cc={x:cx,y:cy,sep}}
+function gvPay(){const E=GEV.cur;gvTake(E.need);E.ph='go';E.t=0;gvMsg('✔ Peaje pagado: la flota se retira')}
+function gvTake(n){for(const k of Object.keys(ship.inv).sort((a,b)=>(MIN[a]||[0,0,1])[2]-(MIN[b]||[0,0,1])[2])){const t=Math.min(n,ship.inv[k]);ship.inv[k]-=t;ship.ore=Math.max(0,ship.ore-t);n-=t}if(n>0)ship.scrap=Math.max(0,(ship.scrap|0)-Math.ceil(n))}
 function gevPick(){const h0=GEV.cur;gevPick0();if(GEV.cur&&GEV.cur!==h0)GEV.cur.id=(Date.now()%1e9)|0}
 function gevPick0(){if(!gvFar(ship.x,ship.y,3200)){GEV.t=15;return}
  const o=[['cv',MPS.gt||MP.role==='host'&&mpGroup().n>1?3:Math.hypot(ship.vx,ship.vy)>70?3:0],['st',2],['mt',2],['tr',1.5],['cr',2]];let s=o.reduce((a,b)=>a+b[1],0)*Math.random(),k='st';for(const[q,w]of o)if((s-=w)<=0){k=q;break}
  const a=rnd(0,TAU),ca=Math.cos(a),sa=Math.sin(a),st=BAL.stage();
- if(k==='cv'&&MP.role==='host'&&(MPS.gt||mpGroup().n>1)){const G=mpGroup(),n=4+Math.min(st,2)+3*(G.n-1)+(MPS.gt&&G.n<2?2:0),R=1400+G.sep;ship.x=G.x;ship.y=G.y;MPS.gg=1;for(let i=0;i<n;i++){const a2=i/n*TAU+rnd(0,.3),e=balE(mk('e',ship.x+Math.cos(a2)*R,ship.y+Math.sin(a2)*R,{x:ship.x,y:ship.y}));e.a=a2+Math.PI;e.agr=2500;npcs.push(e)}toast(G.n>1?'⚠ Una flota desconocida hostil rodea a los pilotos: '+n+' naves':'⚠ Flota desconocida hostil se acerca: '+n+' naves');GEV.t=40;return}
- if(k==='cv'){const n=4+Math.min(st,2);GEV.cur={k,ph:'arr',n,need:Math.min(Math.max(3,Math.ceil(T.cargo*.35)),5+st*3),t:0,lim:25,tm:1e9};gvShips(n,0,a,1700);toast('⚠ Flota desconocida en formación: se acerca a tu posición')}
+ 
+ if(k==='cv'){const G=MP.role==='host'?mpGroup():{n:1},n=4+Math.min(st,2)+(G.n-1);GEV.cur={k,ph:'arr',n,need:Math.min(Math.max(3,Math.ceil(T.cargo*.35)),5+st*3)+2*(G.n-1),t:0,lim:25,tm:1e9,mp:MP.role==='host'?1:0};gvShips(n,0,a,1700);toast('⚠ Flota desconocida en formación: se acerca a tu posición')}
  else if(k==='st'){GEV.cur={k,x:ship.x+ca*rnd(0,900),y:ship.y+sa*rnd(0,900),vx:rnd(-25,25),vy:rnd(-25,25),r:1500,tm:55,fl:2,sd:rnd(0,50)};toast('⚡ Tormenta de iones: drena los escudos. Sal de la zona')}
  else if(k==='mt'){GEV.cur={k,tm:65,sp:0,d:a,zx:ship.x,zy:ship.y,zr:3000,in:1,sd:rnd(0,50)};toast('☄ Lluvia de meteoritos en una zona amplia: esquiva o destrúyelos (sueltan chatarra) o sal de ella para ponerte a salvo')}
  else if(k==='tr'){const h=rnd(0,TAU);GEV.cur={k,x:ship.x+ca*900,y:ship.y+sa*900,vx:0,vy:0,a:h,tm:110,sp:rnd(55,85),cap:Math.round(rnd(14,24)),cx:0};toast('📡 Mercader errante cerca: sigue la señal · compra mineral (stock limitado) y repara el casco')}
@@ -1626,10 +1632,10 @@ function gevTick(dt){const E=GEV.cur;
  if(E.k==='cv'&&mpSlave())return;
  if(E.k==='cv'){const cs=npcs.filter(c=>c.gv);if(!cs.length){toast('Flota destruida');return gevEnd()}
   if(E.ph!=='go'&&cs.some(c=>c.hp<c.max-.5))return gvHostile('⚠ ¡Has disparado a la flota: contraatacan!');
-  const sv=Math.hypot(ship.vx,ship.vy);E.t+=dt;
-  if(E.ph==='go'){for(const c of cs){const a=Math.atan2(c.y-ship.y,c.x-ship.x);c.vx=Math.cos(a)*520;c.vy=Math.sin(a)*520;c.x+=c.vx*dt;c.y+=c.vy*dt;c.a=a}if(E.t>6)gevEnd();return}
-  let far=0;for(const c of cs){const a=c.slot+time*.3,R=E.ph==='arr'?340:300,dx=ship.x+Math.cos(a)*R-c.x,dy=ship.y+Math.sin(a)*R-c.y,d=Math.hypot(dx,dy)||1,sp=Math.min(d*2.5+sv,620);c.vx=dx/d*sp;c.vy=dy/d*sp;c.x+=c.vx*dt;c.y+=c.vy*dt;c.a=d>80?Math.atan2(c.vy,c.vx):Math.atan2(ship.y-c.y,ship.x-c.x);if(d>260)far++}
-  if(E.ph==='arr'&&(!far||E.t>16)){E.ph='dem';E.t=0;E.lim=Math.floor(gvTot()+(ship.scrap|0))>=E.need?25:6;toast('⚠ La flota te rodea: «Entrega '+E.need+' de material o abrimos fuego»')}
+  const P0=E.mp?gvCtr(E,cs):ship,sv=E.mp?0:Math.hypot(ship.vx,ship.vy);E.t+=dt;
+  if(E.ph==='go'){for(const c of cs){const a=Math.atan2(c.y-P0.y,c.x-P0.x);c.vx=Math.cos(a)*520;c.vy=Math.sin(a)*520;c.x+=c.vx*dt;c.y+=c.vy*dt;c.a=a}if(E.t>6)gevEnd();return}
+  let far=0;for(const c of cs){const a=c.slot+time*.3,R=(E.ph==='arr'?340:300)+(E.mp?P0.sep:0),dx=P0.x+Math.cos(a)*R-c.x,dy=P0.y+Math.sin(a)*R-c.y,d=Math.hypot(dx,dy)||1,sp=Math.min(d*2.5+sv,620);c.vx=dx/d*sp;c.vy=dy/d*sp;c.x+=c.vx*dt;c.y+=c.vy*dt;c.a=d>80?Math.atan2(c.vy,c.vx):Math.atan2(P0.y-c.y,P0.x-c.x);if(d>260)far++}
+  if(E.ph==='arr'&&(!far||E.t>16)){E.ph='dem';E.t=0;E.lim=E.mp?40:(Math.floor(gvTot()+(ship.scrap|0))>=E.need?40:18);gvMsg('⚠ La flota os rodea: «Entrega '+E.need+' de material o abrimos fuego»')}
   else if(E.ph==='dem'&&E.t>E.lim)gvHostile('⚠ ¡Abren fuego!')}
  else if(E.k==='st'){E.x+=E.vx*dt;E.y+=E.vy*dt;if(dist(ship,E)<E.r){ship.shd=Math.max(0,ship.shd-7*dt);E.fl-=dt;if(E.fl<=0){E.fl=rnd(2,3.5);hurt(5,null,rnd(0,TAU));boom(ship.x+rnd(-30,30),ship.y+rnd(-30,30),6,'#c9a0ff')}}if(E.tm<=0){toast('La tormenta de iones se disipa');gvDone()}}
  else if(E.k==='mt'){const inn=Math.hypot(ship.x-E.zx,ship.y-E.zy)<E.zr;if(inn!==E.in){E.in=inn;toast(inn?'☄ Vuelves a la zona de meteoritos':'✔ Has salido de la lluvia de meteoritos: estás a salvo')}if(!mpSlave()){if(MP.role==='host')gvMtHost(dt,E);else{E.sp-=dt;if(inn&&E.sp<=0){E.sp=.2;gvAddRock(ship.x,ship.y,E)}}}if(E.tm<=0){toast('La lluvia de meteoritos termina');gvDone()}}
@@ -1639,8 +1645,8 @@ function gevTick(dt){const E=GEV.cur;
    if(Math.random()<.3){gvShips(3,1,rnd(0,TAU),900);toast('⚠ ¡Era una trampa! Piratas atacan')}gvDone()}else if(E.tm<=0){toast('La cápsula se pierde en la deriva');gvDone()}}}
 function trSell(E,go){let cap=E.cap,u=0,v=0;const cap0=cap;const ks=Object.keys(ship.inv).sort((a,b)=>(MIN[b]||[0,0,1])[2]-(MIN[a]||[0,0,1])[2]);for(const k of ks){const q=Math.min(Math.floor(ship.inv[k]||0),cap);if(q<=0)continue;const pr=Math.round(C.sell*1.8*(MIN[k]?MIN[k][2]:1));u+=q;v+=q*pr;cap-=q;if(go){ship.inv[k]-=q;ship.ore=Math.max(0,ship.ore-q);if(ship.inv[k]<=.001)delete ship.inv[k]}}if(go){E.cap=cap;if(mpSlave())MPS.tc=(MPS.tc||0)+(cap0-cap);ship.cred+=v;ship.full=0}return{u,v}}
 function gevAct(a){const E=GEV.cur;if(!E)return;
- if(a==='pay'&&E.k==='cv'&&E.ph==='dem'){if(Math.floor(gvTot()+(ship.scrap|0))>=E.need)gvPay()}
- else if(a==='no'&&E.k==='cv')gvHostile('⚠ Te niegas: la flota ataca');
+ if(a==='pay'&&E.k==='cv'&&E.ph==='dem'){if(Math.floor(gvTot()+(ship.scrap|0))>=E.need){if(mpSlave()){gvTake(E.need);MPS.gp=E.id;E.ph='go';toast('✔ Peaje pagado: la flota se retira')}else gvPay()}}
+ else if(a==='no'&&E.k==='cv'){if(mpSlave()){MPS.gn=E.id;toast('Te niegas: la flota ataca')}else gvHostile('⚠ Te niegas: la flota ataca')}
  else if(E.k==='tr'&&dist(ship,E)<330){if(a==='sell'){const r=trSell(E,1);if(!r.u)return toast(E.cap<=0?'El mercader ya no tiene sitio en la bodega':'No llevas mineral que vender');toast('Vendido al mercader: '+r.u+' u · +'+r.v+' cr (×1.8)'+(E.cap<=0?' · bodega llena: se marcha':''));if(E.cap<=0)E.tm=Math.min(E.tm,6)}
   else if(a==='fix'){if(ship.hull>=T.hull-.5)return toast('El casco ya está intacto');if(ship.cred<120)return toast('Faltan créditos: 120');ship.cred-=120;ship.hull=T.hull;toast('Casco reparado: -120 cr')}}
  gevUI()}
@@ -1876,7 +1882,7 @@ addEventListener('keydown',e=>{if(state!=='pause')return;if(e.code==='Escape'){e
 $('mBack').onclick=()=>mshow('mMain');
 $('mCre').textContent='Modo creativo · todo infinito, no guarda';$('mCre').onclick=()=>{location.hash='cre';location.reload()};
 function creaTick(){QX.card=1;if(ship.dead>0)return;ship.cred=Math.max(ship.cred,999999999);ship.scrap=Math.max(ship.scrap,99999);for(const k in MIN)ship.inv[k]=Math.max(ship.inv[k]||0,999);ship.cm=ship.cm||{};for(const k in CK)ship.cm[k]=Math.max(ship.cm[k]||0,999);if(CFG.inv){ship.hull=T.hull;ship.shd=T.shd;Object.assign(ship.parts,fp())}if(CFG.ie)ship.en=100;ship.ore=0}
-setInterval(()=>{if(CFG.cre&&state!=='menu')creaTick()},200);$('mDel').onclick=()=>mshow('mAsk');$('mNo').onclick=()=>mshow('mMain');
+setInterval(()=>{if(CFG.cre&&state!=='menu')creaTick()},200);setInterval(()=>{if(MP.cre&&MP.role&&!CFG.cre&&state!=='menu')creaTick()},200);$('mDel').onclick=()=>mshow('mAsk');$('mNo').onclick=()=>mshow('mMain');
 $('mYes').onclick=()=>{noSave=1;wipe();try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}location.reload()};
 CFG.cre=location.hash==='#cre'?1:0;CFG.ie=CFG.cre?1:0;CFG.inv=CFG.cre?1:0;if(CFG.cre){QX.card=1;{const pv=$('pInv'),pq=()=>{pv.textContent='Invencible: '+(CFG.inv?'SÍ':'NO')};pv.classList.remove('hide');pq();pv.onclick=()=>{CFG.inv=CFG.inv?0:1;pq();toast(CFG.inv?'Invencible activado':'Invencible desactivado: ahora recibes daño de verdad')}}const pe=$('pIE'),pt=()=>{pe.textContent='Energía infinita: '+(CFG.ie?'SÍ':'NO')};pe.classList.remove('hide');pt();pe.onclick=()=>{CFG.ie=CFG.ie?0:1;pt();if(CFG.ie)ship.en=100;toast(CFG.ie?'Energía infinita activada':'Energía infinita desactivada: la energía se gasta y se recarga con normalidad')}}if(MPG||location.hash==='#go'||location.hash==='#cre'){try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}loadGame();if(CFG.cre){noSave=1;toast('Modo creativo: todo infinito · no se guarda')}if(NEWWORLD)saveGame()}else startMenu();
 
@@ -1938,8 +1944,11 @@ async function mpConnect(code){if(!SUPA_KEY)throw new Error('Falta la clave de S
  const ch=MP.sb.channel('starluge-'+code,{config:{broadcast:{self:false,ack:false},presence:{key:MP.id}}});MP.ch=ch;MP.code=code;
  ch.on('presence',{event:'sync'},mpSync).on('broadcast',{event:'join'},m=>mpOnJoin(m.payload)).on('broadcast',{event:'welcome'},m=>mpOnWelcome(m.payload)).on('broadcast',{event:'st'},m=>mpOnSt(m.payload)).on('broadcast',{event:'sv'},m=>mpOnSv(m.payload)).on('broadcast',{event:'close'},()=>mpOnClose()).on('broadcast',{event:'rs'},()=>{if(MP.role==='host')MPS.reset()}).on('broadcast',{event:'kr'},m=>mpOnKr(m.payload)).on('broadcast',{event:'cx'},m=>mpOnCx(m.payload)).on('broadcast',{event:'af'},m=>mpOnAf(m.payload)).on('broadcast',{event:'dr'},m=>mpOnDr(m.payload)).on('broadcast',{event:'bh'},m=>mpOnBh(m.payload)).on('broadcast',{event:'tt'},m=>{const q=m.payload;if(q&&typeof q.m==='string'&&(!q.to||q.to===MP.id))toast(q.m.slice(0,100))});
  await new Promise((ok,ko)=>{const t=setTimeout(()=>ko(new Error('Sin conexión con el servidor')),8000);ch.subscribe(s=>{if(s==='SUBSCRIBED'){clearTimeout(t);ok()}else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT'){clearTimeout(t);ko(new Error('Error de conexión con Supabase'))}})})}
+/* modo creativo de sala: todo infinito mientras esté activo; no se guarda y al desactivarlo se restaura lo tuyo */
+function mpCreApply(){if(MP.cre&&!MPCS){MPCS={cred:ship.cred,scrap:ship.scrap,inv:{...ship.inv},cm:{...(ship.cm||{})},ore:ship.ore,card:QX.card,ie:CFG.ie,iv:CFG.inv,ns:noSave};CFG.ie=1;CFG.inv=1;noSave=1}
+ else if(!MP.cre&&MPCS){const o=MPCS;MPCS=null;ship.cred=o.cred;ship.scrap=o.scrap;ship.inv=o.inv;ship.cm=o.cm;ship.ore=o.ore;QX.card=o.card;CFG.ie=o.ie;CFG.inv=o.iv;noSave=o.ns}}
 function mpBc(ev,payload){try{const p=MP.ch.send({type:'broadcast',event:ev,payload});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
-function mpReset(){const ch=MP.ch,sb=MP.sb;clearInterval(MP.tm);clearTimeout(MP.jt);clearTimeout(MP.lt);MP.lt=0;MP.tm=null;MP.role=null;MP.pvp=0;MP.peers={};MP.pend={};MP.ch=null;MP.joined=0;MP.hostGone=0;MP.big=0;for(const k in MPR)delete MPR[k];if(ch&&sb)setTimeout(()=>{try{sb.removeChannel(ch)}catch(e){}},350)}
+function mpReset(){const ch=MP.ch,sb=MP.sb;clearInterval(MP.tm);clearTimeout(MP.jt);clearTimeout(MP.lt);MP.lt=0;MP.tm=null;MP.role=null;MP.pvp=0;if(MP.cre){MP.cre=0;mpCreApply()}MP.peers={};MP.pend={};MP.ch=null;MP.joined=0;MP.hostGone=0;MP.big=0;for(const k in MPR)delete MPR[k];if(ch&&sb)setTimeout(()=>{try{sb.removeChannel(ch)}catch(e){}},350)}
 function mpStart(){if(MP.tm)return;MP.tm=setInterval(mpSend,110)}
 function mpSync(){if(!MP.ch)return;const st=MP.ch.presenceState(),p={};for(const k in st){const e=st[k][0];if(e)p[k]={n:e.n,h:e.h,id:k}}MP.peers=p;for(const k in MPR)if(!p[k])delete MPR[k];
  if(MP.role==='guest'&&MP.joined&&!MP.hostGone){if(Object.values(p).some(q=>q.h)){if(MP.lt){clearTimeout(MP.lt);MP.lt=0}}else if(!MP.lt){MP.lts=performance.now();MP.lt=setTimeout(()=>{MP.lt=0;if(MP.role==='guest'&&!Object.values(MP.peers).some(q=>q.h))mpOnClose()},30000)}}mpRenderList()}
@@ -2002,9 +2011,9 @@ function wjDraw(x,y,a,code,vx,vy){if(!code)return;
  if(code<100){const k=clamp((code-1)/98,0,1),o={x:ship.x,y:ship.y,w0:warp};ship.x=x;ship.y=y;warp={t:k,t1:1,te:2,h:a,dest:{n:''}};g.save();g.translate(x,y);g.scale(.55,.55);g.translate(-x,-y);try{warpFx(0)}finally{g.restore();ship.x=o.x;ship.y=o.y;warp=o.w0}return}
  const sp=Math.hypot(vx||0,vy||0),L=Math.min(900,sp*.12),c=Math.cos(a),n=Math.sin(a);g.save();g.globalCompositeOperation='lighter';g.lineCap='round';g.strokeStyle='rgba(90,170,255,.3)';g.lineWidth=9;g.beginPath();g.moveTo(x,y);g.lineTo(x-c*L,y-n*L);g.stroke();g.strokeStyle='rgba(180,235,255,.7)';g.lineWidth=4;g.beginPath();g.moveTo(x,y);g.lineTo(x-c*L,y-n*L);g.stroke();g.restore()}
 function mpSend(){if(!MP.role||!MP.ch||state==='menu')return;
- {const P={id:MP.id,n:MP.name,ti:TYPES.indexOf(T),x:Math.round(ship.x),y:Math.round(ship.y),vx:Math.round(ship.vx||0),vy:Math.round(ship.vy||0),a:+ship.a.toFixed(2),dk:(ship.docked||state==='hangar')?1:0,dd:ship.dead>0?1:0,wk:ship.wreck?1:0,sh:MP.share?1:0,h:+clamp(ship.hull/T.hull,0,1).toFixed(2),pp:[ship.parts.eng,ship.parts.eg2,ship.parts.wpn,ship.parts.min,ship.parts.jmp].map(v=>Math.round(v)),cd:QX.card?1:0,eh:Math.round(ship.eh||0),er:ship.ehR>0?1:0,ek:Math.round((ship.fk||0)*100),wj:(state==='warp'&&warp)?[+warp.t.toFixed(2),+warp.t1.toFixed(2),+warp.te.toFixed(2),+warp.h.toFixed(3)]:0,bm:(ship.beam&&!ship.dead)?[Math.round(ship.beam.x),Math.round(ship.beam.y),ship.beam.c]:0,wg:mpWg()};
+ {const P={id:MP.id,n:MP.name,ti:TYPES.indexOf(T),x:Math.round(ship.x),y:Math.round(ship.y),vx:Math.round(ship.vx||0),vy:Math.round(ship.vy||0),a:+ship.a.toFixed(2),dk:(state==='hangar'||(state==='pause'&&pauseFrom==='hangar'))?1:0,dd:ship.dead>0?1:0,wk:ship.wreck?1:0,sh:MP.share?1:0,h:+clamp(ship.hull/T.hull,0,1).toFixed(2),pp:[ship.parts.eng,ship.parts.eg2,ship.parts.wpn,ship.parts.min,ship.parts.jmp].map(v=>Math.round(v)),cd:QX.card?1:0,eh:Math.round(ship.eh||0),er:ship.ehR>0?1:0,ek:Math.round((ship.fk||0)*100),wj:(state==='warp'&&warp)?[+warp.t.toFixed(2),+warp.t1.toFixed(2),+warp.te.toFixed(2),+warp.h.toFixed(3)]:0,bm:(ship.beam&&!ship.dead)?[Math.round(ship.beam.x),Math.round(ship.beam.y),ship.beam.c]:0,wg:mpWg()};
   if(MPS.hf&&MPS.help)P[MPS.hf]=MPS.help.id;
-  if(MPS.gk.length)P.gk=MPS.gk.splice(0,40);if(MPS.tc){P.tc=MPS.tc;MPS.tc=0}if(MPS.gd){P.gd=MPS.gd;MPS.gd=0}if(MPS.pb.length)P.pb=MPS.pb.splice(0,40);if(MPS.lp.length)P.lp=MPS.lp.splice(0,40);
+  if(MPS.gk.length)P.gk=MPS.gk.splice(0,40);if(MPS.tc){P.tc=MPS.tc;MPS.tc=0}if(MPS.gd){P.gd=MPS.gd;MPS.gd=0}if(MPS.gp){P.gp=MPS.gp;MPS.gp=0}if(MPS.gn){P.gn=MPS.gn;MPS.gn=0}if(MPS.pb.length)P.pb=MPS.pb.splice(0,40);if(MPS.lp.length)P.lp=MPS.lp.splice(0,40);
   {const a=Object.entries(MPS.mi);if(a.length){P.mi=a.map(([i,m])=>[+i,+m.toFixed(3)]);MPS.mi={}}const c=Object.entries(MPS.mc);if(c.length){P.mc=c.map(([i,m])=>[+i,+m.toFixed(3)]);MPS.mc={}}}
   if(MP.role==='host')P.w=mpWorld();mpBc('st',P)}}
 function mpOnSt(p){if(!p||!p.id||p.id===MP.id||!MP.role)return;let r=MPR[p.id];if(!r)r=MPR[p.id]={id:p.id,x:p.x,y:p.y,vx:0,vy:0,a:p.a};
@@ -2060,7 +2069,7 @@ function mpDraw(){if(!MP||!MP.role)return;mpWreckDraw();const now=performance.no
   mpBeamDraw(r);
   txt(r.n+(r.hh<.995?' · '+Math.round(r.hh*100)+'%':''),r.x,r.y-30,r.hh<.4?'#ffd166':'#cfe8ff','center',Math.round(11/Math.max(.4,zoom)))}}
 function mpMini(X,Y,m){if(!MP||!MP.role)return;const cx=m.x+m.w/2,cy=m.y+m.h/2,hw=m.w/2-4;for(const k in MPR){const r=MPR[k];if(r.sx==null||!r.sh||performance.now()-r.t>8000)continue;const c=r.wk?'#ffd166':r.dk?'#4fd1ff':'#7dff9b';let dx=X(r.x)-cx,dy=Y(r.y)-cy;const mx=Math.max(Math.abs(dx),Math.abs(dy)),out=mx>hw;if(out){dx*=hw/mx;dy*=hw/mx}
- g.fillStyle=out?'rgba(0,0,0,0)':c;g.strokeStyle=c;g.lineWidth=1.5;g.fillRect(cx+dx-3,cy+dy-3,6,6);if(out)g.strokeRect(cx+dx-3,cy+dy-3,6,6);txt((r.n||'?').slice(0,6),cx+dx,cy+dy-6,c,'center',8)}}
+ g.fillStyle=out?'rgba(0,0,0,0)':c;g.strokeStyle=c;g.lineWidth=1.5;g.fillRect(cx+dx-3,cy+dy-3,6,6);if(out)g.strokeRect(cx+dx-3,cy+dy-3,6,6);if(out)txt((r.n||'?').slice(0,6),cx+dx,cy+dy-6,c,'center',8)}}
 function mpHud(){if(!MP||!MP.role||state!=='play')return;if(MP.lt)txt('⚠ Anfitrión sin conexión · esperando '+Math.max(0,Math.ceil(30-(performance.now()-MP.lts)/1000))+' s',W/2,60,'#ffd166','center',12);txt('SALA '+MP.code+' · '+Object.keys(MP.peers).length+'/4'+(MP.pvp?' · PVP':'')+(MP.hostGone?' · SIN ANFITRIÓN':''),W/2,44,MP.hostGone?'#ff6b6b':'#7dff9b','center',11)}
 /* ---- interfaz ---- */
 function mpMsg(t){MP.msg=t||'';const e=$('mpSt');if(e)e.textContent=MP.msg}
@@ -2070,7 +2079,7 @@ function mpCard(g){const h=g.r==='h',fr=(g.names||[]).join(', ');
 function mpRender(){const b=$('mpBody');if(!b)return;const inR=!!MP.role;
  let h=`<label>Nombre de piloto</label><input id="mpName" class="mpin" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Tu nombre" value="${mpEsc(MP.name&&MPG?MP.name:mpName())}" ${inR||MPG?'disabled':''}>`;
  if(inR){h+=`<label>Código de sala</label><div class="mpC">${mpEsc(MP.code)}<button class="sq" data-a="copy">Copiar</button></div><label>Jugadores</label><div id="mpL"></div>`;
-  h+=`<label>Modo de juego</label>`+(MP.role==='host'?`<button class="sq" data-a="pvp">${MP.pvp?'⚔ PVP · los jugadores pueden dispararse':'🤝 PVE · cooperativo'} (cambiar)</button>`:`<div class="mpH">${MP.pvp?'⚔ PVP':'🤝 PVE'} (lo elige el anfitrión)</div>`);
+  h+=`<label>Modo de juego</label>`+(MP.role==='host'?`<button class="sq" data-a="pvp">${MP.pvp?'⚔ PVP · los jugadores pueden dispararse':'🤝 PVE · cooperativo'} (cambiar)</button>`:`<div class="mpH">${MP.pvp?'⚔ PVP':'🤝 PVE'} (lo elige el anfitrión)</div>`)+(MP.role==='host'?`<button class="sq" data-a="cre">${MP.cre?'🛠 Creativo ACTIVADO para toda la sala (desactivar)':'🛠 Activar modo creativo para toda la sala'}</button>`:(MP.cre?`<div class="mpH">🛠 Modo creativo activo (lo elige el anfitrión)</div>`:''));
   if(MP.role==='host')h+=`<button class="sq" data-a="close" style="margin-top:14px">Cerrar sala (sigues jugando)</button>`;
   else if(MP.hostGone)h+=`<button class="sq go" data-a="retry" style="margin-top:14px">Reconectar</button>`;
   h+=`<button class="sq dng" data-a="exit" style="margin-top:8px">Salir de la partida</button>`}
@@ -2092,7 +2101,7 @@ function mpHide(){mpOpen=0;$('mpw').classList.add('hide')}
 $('pMP').onclick=mpShow;$('mMP').onclick=mpShow;
 $('mpw').addEventListener('click',e=>{if(e.target===$('mpw'))return mpHide();const b=e.target.closest('button');if(!b||b.disabled)return;const a=b.dataset.a;
  if(a==='x')mpHide();else if(a==='new0')mpNew(0);else if(a==='new1')mpNew(1);else if(a==='join')mpJoin();else if(a==='cont')mpContinue(b.dataset.g,b.dataset.r);else if(a==='del')mpDel(b.dataset.g,b.dataset.r);
- else if(a==='pvp'){if(MP.role==='host'){MP.pvp=MP.pvp?0:1;toast(MP.pvp?'⚔ Modo PVP activado':'🤝 Modo PVE activado');mpRender()}}else if(a==='close')mpCloseRoom();else if(a==='open')mpOpenRoom(0);else if(a==='exit')mpExit();else if(a==='retry'){mpReset();mpRender();mpResume()}
+ else if(a==='pvp'){if(MP.role==='host'){MP.pvp=MP.pvp?0:1;toast(MP.pvp?'⚔ Modo PVP activado':'🤝 Modo PVE activado');mpRender()}}else if(a==='cre'){if(MP.role==='host'){MP.cre=MP.cre?0:1;mpCreApply();toast(MP.cre?'🛠 Modo creativo activado para toda la sala':'Modo creativo desactivado');mpRender()}}else if(a==='close')mpCloseRoom();else if(a==='open')mpOpenRoom(0);else if(a==='exit')mpExit();else if(a==='retry'){mpReset();mpRender();mpResume()}
  else if(a==='copy'){try{navigator.clipboard.writeText(MP.code);mpMsg('Código copiado')}catch(_){mpMsg('Código: '+MP.code)}}});
 addEventListener('keydown',e=>{if(state==='menu'&&e.code==='Escape'&&mpOpen){e.preventDefault();mpHide()}});
 setInterval(()=>{if(mpOpen&&MP.role)mpRenderList()},1000);
