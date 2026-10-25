@@ -1,0 +1,19 @@
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*~
+
+# Copias y temporales
+*.bak
+*.tmp
+*.log
+
+# Claves y entornos (nunca subas la clave service_role de Supabase)
+.env
+.env.*
