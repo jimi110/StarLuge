@@ -143,7 +143,7 @@ canvas{touch-action:none;-webkit-touch-callout:none}
 @media (max-height:520px){#wTut{padding-bottom:calc(env(safe-area-inset-bottom) + 6px)}}
 /* menú flotante de órdenes: opaco y legible, por encima de la flota */
 #ctx{background:rgba(5,12,22,.99);border:1px solid var(--bd);padding:4px;box-shadow:0 8px 28px rgba(0,0,0,.7);min-width:200px}
-#ctx .sq{background:rgb(10,24,40)}#ctx .sq.dng{background:rgb(40,14,18)}
+#ctx .sq{background:rgb(10,24,40)}#ctx .sq.dng{background:rgb(40,14,18)}#ctx .sq.dis{opacity:.45;border-color:#58708a}
 body.mp [data-w="h"]{display:none!important}
 </style><div id="wTut" class="hide"><div class="tc"><div class="th"><span>Nuevo · Escoltas</span><span id="wtN"></span></div><div id="wtV"></div><h3 id="wtT"></h3><p id="wtD"></p><div class="tb"><button class="sq" id="wtP">Atrás</button><div class="dots" id="wtDots"></div><button class="sq go" id="wtX">Siguiente</button></div></div></div>
   <div id="modes" class="hide"></div><div id="wP" class="hide"></div>
@@ -307,7 +307,7 @@ function recruit(){const ti=(Math.random()*5)|0,t=TYPES[ti],mx=Math.round(t.hull
  if(ownN()>=4){const g=Math.round(PRC[ti]*.4),b=nBase(ship);ship.cred+=g;w.st='guard';w.hb=b;toast('Flota completa: '+t.n+' pagado +'+g+' cr · se va a escoltar '+b.n)}
  else toast('Nave reparada ('+t.n+'): clic derecho sobre ella para ordenarle. Si no, se queda protegiendo '+w.hb.n);
  wing.push(w);if(wOpen)wRender()}
-function setW(a,st){if(!a.own&&ownN()>=4)return toast('Flota llena (4/4)');a.own=1;if(st==='follow')wBs(a);a.st=st;a.jp=null;if(st==='base'){a.hb=nBase(a);toast('Va a '+a.hb.n+' a esperar')}else toast('Se une a tu formación');qEv('wgf');if(wOpen)wRender()}
+function setW(a,st){if(!a.own&&ownN()>=4)return toast('Flota llena (4/4)');a.own=1;a.esc=null;if(st==='follow')wBs(a);a.st=st;a.jp=null;if(st==='base'){a.hb=nBase(a);toast('Va a '+a.hb.n+' a esperar')}else toast('Se une a tu formación');qEv('wgf');if(wOpen)wRender()}
 const ALP_PR=700,OMG_PR=2200;
 function gAt(wx,wy){let r=null,rd=45/zoom;for(const n of npcs)if(n.team==='g'&&!n.gv&&n.hp>0&&(!n.om||QX.card)){const d=Math.hypot(n.x-wx,n.y-wy)-(n.rad||18);if(d<rd){rd=d;r=n}}return r}
 function recruitG(n){if(n.om){if(!QX.card)return toast('Necesitas la tarjeta de acceso de Omega');if(omHostile())return toast('La guardia de Omega te ataca: no puede unirse')}else if(wanted)return toast('La guardia de Alfa te ataca: no puede unirse');if(ownN()>=4)return toast('Flota llena (4/4)');const PR_=n.om?OMG_PR:ALP_PR;if(ship.cred<PR_)return toast('Créditos insuficientes ('+PR_+' cr)');const i=npcs.indexOf(n);if(i<0)return;const t=TYPES[0],mx=Math.round(t.hull*.5+40);ship.cred-=PR_;npcs.splice(i,1);
@@ -318,14 +318,30 @@ function allyAt(wx,wy){let r=null,rd=50/zoom+14;for(const w of wing){const d=Mat
 function allyMenu(px,py,a){if(ship.dead&&!ship.wreck&&!a.svc)return;if(a.svc||a.st==='rescue')return ctxMenu(px,py,[['Información',()=>wInfoOpen(a)]]);const it=[],pr=PRC[a.ti];
  if(a.st==='guard')it.push(['Unirse a tu formación · '+pr+' cr',()=>{if(ownN()>=4)return toast('Flota llena (4/4)');if(ship.cred<pr)return toast('Créditos insuficientes ('+pr+' cr)');ship.cred-=pr;setW(a,'follow')}]);
  else{if(ship.wreck)it.push(['Rescate',()=>wCallOne(a)]);else if(a.st!=='follow')it.push(['Seguirme',()=>setW(a,'follow')]);else it.push([a.bs?'Volver a '+a.bs.n:'Dejar de seguir',()=>wStop(a,px,py),'dng']);it.push(['Enviar a una base…',()=>baseMenu(px,py,a)])}
- it.push(['Información',()=>wInfoOpen(a)]);ctxMenu(px,py,it)}
+ it.push(['Información',()=>wInfoOpen(a)]);if(MP.role&&a.own&&!ship.wreck)it.push(['Escoltar a un jugador…',()=>escMenu(px,py,a)]);ctxMenu(px,py,it)}
 /* base de origen: se recuerda al empezar a seguirte; si nunca estuvo en una base se pregunta adónde llevarla */
+function escMenu(px,py,a){const L=[],now=performance.now();for(const k in MPR){const r=MPR[k];if(r.sx==null||now-r.t>5000)continue;L.push(['Para ayudar a '+r.n,()=>escSend(a,r,'help')]);L.push(['Para matar a '+r.n+(MP.pvp?'':' · solo en PVP'),()=>escSend(a,r,'kill'),MP.pvp?'dng':'dis'])}
+ if(!L.length)return toast('No hay otros jugadores en la sala');L.push(['‹ Atrás',()=>allyMenu(px,py,a)]);ctxMenu(px,py,L)}
+function escSend(a,r,k){if(k==='kill'&&!MP.pvp)return toast('Solo se puede atacar a jugadores en modo PVP');a.own=1;a.esc={id:r.id,k,n:r.n};a.st='esc';a.jp=null;toast(a.n+(k==='kill'?' va a por ':' va a escoltar a ')+r.n);if(wOpen)wRender()}
+function wEsc(w,dt){const r=MPR[w.esc.id],kill=w.esc.k==='kill';
+ if(!r||r.sx==null||performance.now()-r.t>8000){w.esc=null;w.st='follow';toast(w.n+' pierde el contacto y vuelve contigo');return}
+ if(kill&&!MP.pvp){w.esc=null;w.st='follow';toast('PVP desactivado: '+w.n+' vuelve contigo');return}
+ const fe=wing.filter(q=>q.st==='esc'&&q.esc&&q.esc.id===w.esc.id),i=Math.max(0,fe.indexOf(w)),far=dist(w,r);
+ if(far>7000&&!w.jp){wJump(w,{x:r.x-Math.cos(r.a||0)*220,y:r.y-Math.sin(r.a||0)*220},.3,1.2);return}
+ let tg=null,td=1e9;
+ if(kill){if(!r.dk&&!r.dd&&!r.wk){tg=r;td=far}for(const o of r.wgs||[]){if(o.jp)continue;const d=dist(w,o);if(d<td){td=d;tg={x:o.x,y:o.y,vx:o.svx||0,vy:o.svy||0}}}}
+ else for(const o of npcs){if(o.team!=='e'||o.hp<=0||o.evs)continue;const d=dist(w,o);if(d<td&&d<900&&dist(o,r)<1300){td=d;tg=o}}
+ if(tg&&td<900){const a=lead(w,tg);w.a+=clamp(angDiff(w.a,a),-1,1)*4*dt;const k=td>300?1:td<180?-.5:0;w.vx=(w.vx+Math.cos(w.a)*w.spd*.9*k*dt)*(1-.8*dt);w.vy=(w.vy+Math.sin(w.a)*w.spd*.9*k*dt)*(1-.8*dt);
+  if(td<600&&w.cd<=0&&Math.abs(angDiff(w.a,a))<.15){w.cd=w.rate;bullets.push(bl(w,a+rnd(-.05,.05),'w',w.dmg))}}
+ else{const sl=wSlot(i,fe.length),h=r.a||0,px=r.x+Math.cos(h)*sl[0]-Math.sin(h)*sl[1],py=r.y+Math.sin(h)*sl[0]+Math.cos(h)*sl[1],dx=px-w.x,dy=py-w.y,d=Math.hypot(dx,dy),sp=Math.min(w.spd*1.3,d*1.4),bx=r.vx||0,by=r.vy||0;
+  let tx=bx+(d>1?dx/d*sp:0),ty=by+(d>1?dy/d*sp:0);const cp=w.spd*1.35,tl=Math.hypot(tx,ty);if(tl>cp){tx*=cp/tl;ty*=cp/tl}wSteer(w,tx-w.vx,ty-w.vy,dt,3.2,cp);if(d<80)w.a+=angDiff(w.a,r.a||0)*Math.min(1,2.5*dt)}
+ const o=avoid(w,14,null);w.vx+=o[0]*700*dt;w.vy+=o[1]*700*dt;w.x+=w.vx*dt;w.y+=w.vy*dt}
 function wBs(a){if((a.st==='base'||a.st==='idle'||a.st==='guard')&&a.hb)a.bs=a.hb}
 function wStop(a,px,py){if(a.bs)return sendW(a,a.bs);toast(a.n+' no tiene base de origen: elige a cuál llevarla');baseMenu(px,py,a)}
 function baseMenu(px,py,a){const bs=baseList(a);ctxMenu(px,py,bs.map(b=>['Enviar a '+b.n+' · '+km(dist(a,b)),()=>sendW(a,b)]).concat([['‹ Atrás',()=>allyMenu(px,py,a)]]))}
-function sendW(a,b){if(!a.own&&ownN()>=4)return toast('Flota llena (4/4)');a.own=1;a.st='base';a.hb=b;a.jp=null;toast(a.n+' viaja a '+b.n);qEv('wgf');if(wOpen)wRender()}
+function sendW(a,b){if(!a.own&&ownN()>=4)return toast('Flota llena (4/4)');a.own=1;a.esc=null;a.st='base';a.hb=b;a.jp=null;toast(a.n+' viaja a '+b.n);qEv('wgf');if(wOpen)wRender()}
 function whereIs(o){let n='el espacio profundo',f=0,bd=1e18;for(const b of BASES){const d=dist(o,b);if(d<b.r+1500&&d<bd){bd=d;n='cerca de '+b.n;f=1}}if(!f){for(const F of FIELDS)if(F.ins(o.x,o.y,300)){n='en '+F.n;f=1;break}}if(!f&&dist(o,SCZ)<SCZ.r+400)n='en el '+SCZ.n;return n}
-function wLbl(w){if(w.svc)return w.back?'Volviendo a '+w.hb.n.replace('Base ','').replace('Estación ',''):w.arr?(w.k==='tow'?'Remolcando':'Reparando'):'En camino hacia ti';if(w.jp)return'Saltando';if(w.st==='base'){const far=dist(w,w.hb)>w.hb.r+700;return(far?'rumbo a ':'en ')+w.hb.n.replace('Base ','').replace('Estación ','')}if(w.st==='guard')return'guardia (en venta)';return({follow:dist(w,ship)>3000?'Rezagada':'Escolta',idle:'Protegiendo '+(w.hb?w.hb.n.replace('Base ','').replace('Estación ',''):'la base'),rescue:'En camino'})[w.st]||w.st}
+function wLbl(w){if(w.svc)return w.back?'Volviendo a '+w.hb.n.replace('Base ','').replace('Estación ',''):w.arr?(w.k==='tow'?'Remolcando':'Reparando'):'En camino hacia ti';if(w.jp)return'Saltando';if(w.st==='base'){const far=dist(w,w.hb)>w.hb.r+700;return(far?'rumbo a ':'en ')+w.hb.n.replace('Base ','').replace('Estación ','')}if(w.st==='guard')return'guardia (en venta)';if(w.st==='esc'&&w.esc)return(w.esc.k==='kill'?'Cazando a ':'Escoltando a ')+w.esc.n;return({follow:dist(w,ship)>3000?'Rezagada':'Escolta',idle:'Protegiendo '+(w.hb?w.hb.n.replace('Base ','').replace('Estación ',''):'la base'),rescue:'En camino'})[w.st]||w.st}
 /* ----- saltos de la flota: viajan de verdad, como tú ----- */
 function wJump(w,D,delay,t0){const d=dist(w,D),a=t0==null?1.2:t0;w.jp={a:{x:w.x,y:w.y},d:{x:D.x,y:D.y},t:0,t1:a+(delay||0),te:a+(delay||0)+Math.max(1.2,d/12000)/wspV(),h:Math.atan2(D.y-w.y,D.x-w.x)}}
 function wjStep(w,dt){const j=w.jp;j.t+=dt;w.a+=angDiff(w.a,j.h)*Math.min(1,10*dt);if(j.t<j.t1){w.vx=w.vy=0;return}
@@ -334,12 +350,12 @@ function wjStep(w,dt){const j=w.jp;j.t+=dt;w.a+=angDiff(w.a,j.h)*Math.min(1,10*d
  const sp=dist(j.a,j.d)*de/L;w.x=j.a.x+(j.d.x-j.a.x)*e;w.y=j.a.y+(j.d.y-j.a.y)*e;w.a=j.h;w.vx=Math.cos(j.h)*sp;w.vy=Math.sin(j.h)*sp;
  if(j.t>=j.te){w.x=j.d.x;w.y=j.d.y;w.vx=Math.cos(j.h)*w.spd*.6;w.vy=Math.sin(j.h)*w.spd*.6;w.jp=null}}
 function wFollowJump(wp){const fo=wing.filter(q=>q.st==='follow'&&q.hp>0&&!q.jp);fo.forEach((q,i)=>{const sl=wSlot(i,fo.length),h=wp.h,D=wp.dest;wJump(q,{x:D.x+Math.cos(h)*sl[0]-Math.sin(h)*sl[1],y:D.y+Math.sin(h)*sl[0]+Math.cos(h)*sl[1]},.6+.5*i,wp.t1+.3)})}
-function wHit(b){for(const w of wing)if(w.hp>0&&!w.jp&&Math.hypot(w.x-b.x,w.y-b.y)<18){b.life=0;{const q=Math.min(w.shd||0,b.d);w.shd=(w.shd||0)-q;w.hp-=b.d-q;w.lh=time;w.by=b.o}if(b.o)b.o.hostile=time;boom(b.x,b.y,4,'#6cf');return true}return false}
+function wHit(b){for(const w of wing)if(w.hp>0&&!w.jp&&Math.hypot(w.x-b.x,w.y-b.y)<18){b.life=0;mpBh(b);{const q=Math.min(w.shd||0,b.d);w.shd=(w.shd||0)-q;w.hp-=b.d-q;w.lh=time;w.by=b.o}if(b.o)b.o.hostile=time;boom(b.x,b.y,4,'#6cf');return true}return false}
 const W_D={agr:'Atacan a cualquier enemigo cercano.',def:'Solo atacan a quien os dispare a ti o a ellos.',obj:'Solo atacan a tu objetivo fijado [T] o al último que disparaste.',pas:'No disparan; solo te acompañan.'};
 function wCan(w){return w.own&&w.hp>0&&w.st!=='rescue'&&!w.jp}
 function wCall(w){if(!w||!w.own||w.hp<=0)return false;if(w.jp){toast(w.n+' está saltando: espera a que llegue');return false}
  if(ship.wreck){if(w.st==='rescue')return false;w.st0=w.st;w.st='rescue';return true}
- if(w.st==='follow')return false;wBs(w);w.st='follow';return true}
+ if(w.st==='follow')return false;wBs(w);w.esc=null;w.st='follow';return true}
 function wCallAll(){let n=0;for(const w of wing)if(wCall(w))n++;toast(n?(ship.wreck?'Patrulla en camino':n+' nave'+(n>1?'s':'')+' en camino a tu posición'):'No hay naves que llamar');if(wOpen)wRender();if(ship.wreck)wkRender()}
 function wCallOne(w){if(wCall(w))toast(w.n+(ship.wreck?' viene a ayudarte':' viene a tu posición'));else if(w&&w.own&&w.st==='follow')toast(w.n+' ya está contigo');if(wOpen)wRender();if(ship.wreck)wkRender()}
 function morph(a,b){const ac=[...a.childNodes],bc=[...b.childNodes],m=Math.min(ac.length,bc.length);
@@ -450,14 +466,15 @@ function wingUpd(dt){
  const fo=wing.filter(w=>w.st==='follow'),hd=wHd(dt);{/* curación: solo si hay un técnico (tú con el Técnico o una nave Técnico de la flota); cura una nave cada vez, poco a poco */
   const hl=hlcV(),src=[];if(hl&&on('rep')&&!ship.dead)src.push({o:ship,r:hl,d:600});for(const q of wing)if(q.own&&q.ti===4&&q.hp>0&&!q.jp)src.push({o:q,r:.03,d:650});
   const dm=w=>w.own&&w.hp>0&&!w.jp&&(w.hp<w.max-.01||(w.smax&&(w.shd||0)<w.smax-.01)),rc=(w,q)=>q.o!==w&&dist(q.o,w)<q.d,ok=w=>dm(w)&&src.some(q=>rc(w,q));
-  for(const w of wing)w.rg=0;if(!(WG.ht&&wing.includes(WG.ht)&&ok(WG.ht)))WG.ht=wing.find(ok)||null;
-  if(WG.ht){const t=WG.ht,q=src.find(q=>rc(t,q));if(q){t.hp=Math.min(t.max,t.hp+t.max*q.r*dt);t.rg=1}}}
+  for(const w of wing)w.rg=0;WRS.clear();if(!(WG.ht&&wing.includes(WG.ht)&&ok(WG.ht)))WG.ht=wing.find(ok)||null;
+  if(WG.ht){const t=WG.ht,q=src.find(q=>rc(t,q));if(q){t.hp=Math.min(t.max,t.hp+t.max*q.r*dt);t.rg=1;WRS.set(t,q.o)}}}
  {/* bases no enemigas: Beta es hostil y Omega solo es segura con la tarjeta; la flota se cura poco a poco dentro de su zona */
   const safeB=b=>b!==B&&(b.n.indexOf('Omega')<0||QX.card);
   for(const w of wing){if(!w.own||w.hp<=0||w.jp||w.svc)continue;const hb=BASES.find(b=>safeB(b)&&dist(w,b)<b.r+250);
    if(hb&&time-(w.lh||-99)>4){if(w.hp<w.max)w.hp=Math.min(w.max,w.hp+w.max*.04*dt);if(w.smax&&(w.shd||0)<w.smax)w.shd=Math.min(w.smax,(w.shd||0)+w.smax*.06*dt)}}}
  for(const w of wing){w.cd-=dt;if(w.smax&&w.rg&&time-(w.lh||-99)>6)w.shd=Math.min(w.smax,(w.shd||0)+w.smax*.08*dt);if(w.jp){wjStep(w,dt);continue}
   if(w.st==='rescue'){if(w.tow&&ship.wreck)continue;const dx=ship.x-w.x,dy=ship.y-w.y,d=Math.hypot(dx,dy);{const v=Math.min(w.spd,d*1.2);if(d>50)wSteer(w,dx/d*v-w.vx*.35,dy/d*v-w.vy*.35,dt,2.6,w.spd);else{w.vx*=1-3*dt;w.vy*=1-3*dt;w.a+=angDiff(w.a,ship.a)*Math.min(1,3*dt)}}w.x+=w.vx*dt;w.y+=w.vy*dt;continue}
+  if(w.st==='esc'&&w.esc){wEsc(w,dt);continue}
   const fl=w.st==='follow',an=fl?ship:(w.hb||(w.hb=nBase(w)));let tg=null,td=1e9;
   if(fl){if(!ship.docked&&WG.b!=='pas'){
     if(WG.b==='obj'){const L=ship.lock&&ship.lock.hp>0&&dist(ship,ship.lock)<1500?ship.lock:(lastShot&&lastShot.hp>0&&time-lastShotT<6?lastShot:null);if(L){tg=L;td=dist(w,L)}}
@@ -499,7 +516,7 @@ function wreckTick(dt){
  for(const r of svc){const dx=ship.x-r.x,dy=ship.y-r.y,d=Math.hypot(dx,dy);if(r.tow){r.arr=1;r.tn=0}else if(d>60){r.x+=dx/d*r.spd*dt;r.y+=dy/d*r.spd*dt;r.a=Math.atan2(dy,dx)}else r.arr=1}
  const ar=wing.filter(w=>w.st==='rescue'&&w.hp>0&&(w.tow||dist(w,ship)<90)),tP=svc.find(r=>r.k==='tec'&&r.arr),wP2=svc.find(r=>r.k==='tow'&&r.arr),tE=ar.find(w=>w.ti===4);let tw=0,tt0=wP2||ar[0];ship.wst='Esperando ayuda';
  const H=mpAid();
- if(H&&H.k==='rf'){ship.wp=(ship.wp||0)+dt/6;ship.wst=mpEsc(H.r.n)+' te repara '+Math.round(ship.wp*100)+'%';if(ship.wp>=1){ship.hull=T.hull;ship.shd=T.shd;ship.parts=fp();revive('Tu amigo '+H.r.n+' te ha reparado')}}
+ if(H&&H.k==='rf'){ship.wp=(ship.wp||0)+dt/MPFIX.t;ship.wst=mpEsc(H.r.n)+' te repara '+Math.round(ship.wp*100)+'%';if(ship.wp>=1){ship.hull=T.hull;ship.shd=T.shd;ship.parts=fp();revive('Tu amigo '+H.r.n+' te ha reparado')}}
  else if(H&&H.k==='tw'){tw=1;const b=nBase(ship),a=H.r.a||0,tx=H.r.x-Math.cos(a)*70,ty=H.r.y-Math.sin(a)*70,k=Math.min(1,4*dt);ship.x+=(tx-ship.x)*k;ship.y+=(ty-ship.y)*k;ship.vx=H.r.vx||0;ship.vy=H.r.vy||0;ship.a=a;ship.wst='Remolcado por '+mpEsc(H.r.n);if(H.r.dk&&dist(ship,b)<b.r+600){ship.hull=Math.max(ship.hull,T.hull*.2);revive('Remolque completado',b)}}
  else if(tP){ship.wp=(ship.wp||0)+dt/6;ship.wst='Reparación en curso '+Math.round(ship.wp*100)+'%';if(ship.wp>=1){ship.hull=T.hull;ship.shd=T.shd;ship.parts=fp();revive('Servicio técnico: nave reparada')}}
  else if(tE){ship.hull+=T.hull*.04*dt;for(const k in ship.parts)ship.parts[k]=Math.min(100,ship.parts[k]+4*dt);ship.wst='Tu Técnico repara la nave '+Math.round(Math.min(1,ship.hull/(T.hull*.4))*100)+'%';if(ship.hull>=T.hull*.4){for(const k in ship.parts)ship.parts[k]=Math.max(ship.parts[k],40);revive('Tu Técnico ha reparado la nave')}}
@@ -754,7 +771,7 @@ function fog(X,Y,sc,al){if(W<1||H<1)return;if(fc.width!==W||fc.height!==H){fc.wi
     if(r<14){fg.fillStyle='#000';fg.beginPath();fg.arc(x,y,r*.85,0,TAU);fg.fill()}
     else{const gr=fg.createRadialGradient(x,y,r*.4,x,y,r);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');fg.fillStyle=gr;fg.fillRect(x-r,y-r,r*2,r*2)}}
   fg.globalCompositeOperation='source-over';g.drawImage(fc,0,0,W,H)}
-function quickAct(px,py){const wx=w2x(px),wy=w2y(py);{const al=allyAt(wx,wy);if(al){allyMenu(px,py,al);return 1}}{const gu=gAt(wx,wy);if(gu){gMenu(px,py,gu);return 1}}{const wr=mpWreckAt(wx,wy);if(wr){if(ship.dead>0||ship.wreck)toast('Tu nave está inutilizada: no puedes ayudar');else mpAidStart(T.rep?'rf':'tw',wr.id);return 1}}let en=null,ed=45/zoom;for(const n of npcs)if(n.team==='e'){const d=Math.hypot(n.x-wx,n.y-wy)-(n.rad||18);if(d<ed){ed=d;en=n}}
+function quickAct(px,py){const wx=w2x(px),wy=w2y(py);{const al=allyAt(wx,wy);if(al){allyMenu(px,py,al);return 1}}{const gu=gAt(wx,wy);if(gu){gMenu(px,py,gu);return 1}}{const wr=mpWreckAt(wx,wy);if(wr){mpAidMenu(px,py,wr);return 1}}let en=null,ed=45/zoom;for(const n of npcs)if(n.team==='e'){const d=Math.hypot(n.x-wx,n.y-wy)-(n.rad||18);if(d<ed){ed=d;en=n}}
   if(en){ship.lock=en;ship.orbit=1;ship.mt=null;ship.oa=Math.atan2(ship.y-en.y,ship.x-en.x);toast('Órbita de ataque');return 1}
   let cm=null,cd=60/zoom;for(const c of cmts){const d=Math.hypot(c.x-wx,c.y-wy)-c.r;if(d<cd){cd=d;cm=c}}
   if(cm){if(T.md.includes('col')){mode.col=true;buildModes()}ship.cl=ship.mc=cm;ship.mt=null;ship.orbit=null;ship.dest=null;toast('Cometa fijado · recogiendo '+CK[cm.k].m);return 1}
@@ -776,19 +793,20 @@ const stab=()=>(eff('eng')+eff('eg2'))/2;
 function zonePart(src){const ks=Object.keys(ship.parts);if(src==null||Math.random()<.3)return ks[Math.floor(Math.random()*ks.length)];const r=angDiff(ship.a,src),ar=Math.abs(r);return ar<.7?'wpn':ar<2.1?(r<0?'min':'jmp'):(r<0?'eng':'eg2')}
 
 const SAVE=SAVEK,wipe=()=>{for(const k of['starbound2d_save_v1','starbound2d_save_v2','starbound2d_cfg',SAVEK])try{localStorage.removeItem(k)}catch(e){}};
-function saveGame(){if(noSave||ship.dead>0||state==='warp')return;try{localStorage.setItem(SAVE,JSON.stringify({v:1,seed:SEED,lay:LEG?1:2,ti:TYPES.indexOf(T),T:TYPES,s:{x:ship.x,y:ship.y,a:ship.a,hull:ship.hull,shd:ship.shd,en:ship.en,ore:ship.ore,inv:ship.inv,cred:ship.cred,scrap:ship.scrap,cm:ship.cm,eh:ship.eh||0,ehR:ship.ehR||0,parts:ship.parts},dk:BASES.indexOf(ship.docked),rq,mo:mode,st:STORE,wo:WOWN,ex:EX,cx:CXD,fd:ANOM.map(o=>o.found?1:0),q:qSave()}))}catch(e){}}
+function saveGame(){if(noSave||(ship.dead>0&&!ship.wreck)||state==='warp')return;try{localStorage.setItem(SAVE,JSON.stringify({v:1,seed:SEED,lay:LEG?1:2,ti:TYPES.indexOf(T),T:TYPES,s:{x:ship.x,y:ship.y,a:ship.a,hull:ship.hull,shd:ship.shd,en:ship.en,ore:ship.ore,inv:ship.inv,cred:ship.cred,scrap:ship.scrap,cm:ship.cm,eh:ship.eh||0,ehR:ship.ehR||0,parts:ship.parts,wreck:ship.wreck?1:0,dead:ship.wreck?1e9:0,wp:ship.wp||0},dk:BASES.indexOf(ship.docked),rq,mo:mode,st:STORE,wo:WOWN,ex:EX,cx:CXD,fd:ANOM.map(o=>o.found?1:0),q:qSave()}))}catch(e){}}
 function loadGame(){let d=null;try{d=JSON.parse(localStorage.getItem(SAVE))}catch(e){}
   if(!d||d.v!==1||!Array.isArray(d.T)||d.T.length!==TYPES.length){setState('hangar');return}
   try{d.T.forEach((t,i)=>Object.assign(TYPES[i],t));if(d.wo)Object.assign(WOWN,d.wo);renderCards();pickType(clamp(d.ti|0,0,TYPES.length-1),true);Object.assign(ship,d.s);STORE=d.st||{};if(d.cx&&typeof d.cx==='object')for(const k in CXT)if(d.cx[k]&&(d.cx[k].o|0)>0)CXD[k]={o:d.cx[k].o|0,k:Math.max(1,d.cx[k].k|0)};if(d.mo){mode=d.mo;buildModes()}ship.docked=d.dk>=0?BASES[d.dk]:null;rq=d.rq||[];EX=d.ex||[];EXS.clear();for(let i=0;i<EX.length;i+=2)EXS.add(ck(EX[i],EX[i+1]));(d.fd||[]).forEach((f,i)=>{if(ANOM[i]&&f)ANOM[i].found=1});qLoad(d.q);cam.x=ship.x;cam.y=ship.y}catch(e){console.warn(e)}
-  setState(ship.docked?'hangar':'play');if(state==='play')toast('Partida cargada')}
+  if(ship.wreck){ship.dead=1e9;ship.vx=ship.vy=0;ship.docked=null}setState(ship.docked?'hangar':'play');if(ship.wreck){wkOpen();toast('Tu nave sigue inutilizada: pide ayuda')}else if(state==='play')toast('Partida cargada')}
 $('bRst').onclick=()=>{if(confirm('¿Borrar todos los datos guardados?')){noSave=1;wipe();try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}location.reload()}};
 const bF=$('bFire');bF.addEventListener('pointerdown',e=>{e.preventDefault();fireTouch=1});['pointerup','pointercancel','pointerleave'].forEach(t=>bF.addEventListener(t,()=>{fireTouch=0}));
 addEventListener('pointerup',e=>{if(e.button===2)fireOn=0});addEventListener('blur',()=>{fireOn=0;fireTouch=0});
 addEventListener('pagehide',saveGame);addEventListener('beforeunload',saveGame);document.addEventListener('visibilitychange',()=>{if(document.hidden)saveGame()});
 
 /* ===== UPDATE ===== */
-function hurt(a,m,src){if(CFG.cre&&CFG.inv)return;if(state==='pause'&&MP.role)return;if(ship.docked||ship.dead||state==='ship'||state==='hangar'||(state==='warp'&&warp&&warp.t>=warp.t1))return;if(m&&msgT<=0){msgT=4;toast(m)}if(on('def'))a*=.65;ship.hit=3;ship.hitA=src;sfx('h');let d=a;const s=Math.min(ship.shd,d);ship.shd-=s;d-=s;ship.hull-=d;if(d>0){const k=zonePart(src),b4=ship.parts[k];ship.parts[k]=Math.max(0,b4-d*1.5);if(b4>=40&&ship.parts[k]<40&&ship.parts[k]>0)toast('⚠ '+NM[k]+' dañado');if(b4>0&&ship.parts[k]<=0)toast('✖ '+NM[k]+' destruido')}
-  if(ship.hull<=0){ship.hull=0;ship.dead=1e9;ship.wreck=1;sel=null;ship.dest=ship.lock=ship.mt=ship.mc=ship.orbit=null;ship.wst='';boom(ship.x,ship.y,14,'#889');toast('Nave inutilizada: pide ayuda');wkOpen()}}
+function shSafe(){return state==='ship'&&!MP.role}
+function hurt(a,m,src){if(CFG.cre&&CFG.inv)return;if(ship.docked||ship.dead||shSafe()||state==='hangar'||(state==='pause'&&pauseFrom==='hangar')||(state==='warp'&&warp&&warp.t>=warp.t1))return;if(state==='ship'&&src!=null){shHitT=time;shHitA=src}if(m&&msgT<=0){msgT=4;toast(m)}if(on('def'))a*=.65;ship.hit=3;ship.hitA=src;sfx('h');let d=a;const s=Math.min(ship.shd,d);ship.shd-=s;d-=s;ship.hull-=d;if(d>0){const k=zonePart(src),b4=ship.parts[k];ship.parts[k]=Math.max(0,b4-d*1.5);if(b4>=40&&ship.parts[k]<40&&ship.parts[k]>0)toast('⚠ '+NM[k]+' dañado');if(b4>0&&ship.parts[k]<=0)toast('✖ '+NM[k]+' destruido')}
+  if(ship.hull<=0){ship.hull=0;ship.dead=1e9;ship.wreck=1;sel=null;ship.dest=ship.lock=ship.mt=ship.mc=ship.orbit=null;ship.wst='';boom(ship.x,ship.y,14,'#889');toast('Nave inutilizada: pide ayuda');if(state==='pause')closePause();else if(state==='ship')closeShip();wkOpen()}}
 function gHit(b){for(const n of npcs)if(n.team==='g'&&n.hp>0&&Math.hypot(n.x-b.x,n.y-b.y)<(n.rad||18)){b.life=0;n.hp-=b.d;boom(b.x,b.y,5,'#f66');if(b.rb)return 1;if(n.om){omAn=time+60;toast('⚠ Has atacado a la guardia de Omega')}else{wantT=time+60;if(!wanted){wanted=1;toast('⚠ ¡Has atacado a la guardia de Alfa! Ahora te atacan todos')}}if(n.hp<=0)boom(n.x,n.y,26,'#ff8a5c');return 1}return 0}
 function mineFx(o,c,dt,r){if(Math.random()<dt*45){const a=rnd(0,TAU),v=rnd(50,170);parts.push({x:o.x+Math.cos(a)*r*.7,y:o.y+Math.sin(a)*r*.7,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rnd(.2,.5),max:.5,c})}
  if(Math.random()<dt*26)sucks.push({x:o.x+rnd(-.6,.6)*r,y:o.y+rnd(-.6,.6)*r,life:.6,max:.6,c})}
@@ -825,11 +843,13 @@ function shipCol(dt){if(ship.wreck||ship.dead>0||ship.docked||state==='warp')ret
 /* ===== mundo (npcs, balas, eventos…): sigue en marcha aunque la nave esté rota o saltando ===== */
 
 /* ===== SINCRONIZACIÓN DEL MUNDO · el anfitrión manda; todos ven lo mismo ===== */
-var MP={role:null,code:'',id:'',name:'',ch:null,sb:null,peers:{},pend:{},msg:'',busy:0,joined:0,hostGone:0},MPR={};
+const WRS=new Map();/* nave curada -> quien la cura (no se guarda en la partida) */
+var MP={role:null,code:'',id:'',name:'',ch:null,sb:null,peers:{},pend:{},msg:'',busy:0,joined:0,hostGone:0,share:1},MPR={};
 if(MPG)document.body.classList.add('mp');
+try{const v=localStorage.getItem('starluge_mpshare');if(v!==null)MP.share=v==='1'?1:0}catch(e){}
 const NSK=['team','max','boss','role','om','evs','gv','evp','rad','dm','fr','agr','dl','slot','static'];
 const GEVMSG={cv:'⚠ Flota desconocida en formación: se acerca',st:'⚡ Tormenta de iones en la zona: drena los escudos',mt:'☄ Lluvia de meteoritos en una zona amplia',tr:'📡 Mercader errante cerca: sigue la señal',cr:'📦 Cápsula de suministros a la deriva'};
-const MPS={pb:[],mi:{},mc:{},lp:[],eb:[],pk:new Set(),dd:new Set(),nid:0,lid:0,cid:0,did:0,tk:0,si:0,sw:null,wt:0,full:1,fl:0,ak:null,ao:new Map(),lg:undefined,
+const MPS={wid:0,gk:[],gq:[],gx:[],rid:0,gs:new Set(),pb:[],mi:{},mc:{},lp:[],eb:[],pk:new Set(),dd:new Set(),nid:0,ebn:0,pbn:0,bhd:new Set(),lid:0,cid:0,did:0,tk:0,si:0,sw:null,wt:0,full:1,fl:0,ak:null,ao:new Map(),lg:undefined,
  reset(){this.full=1;this.ak=null;this.lg=undefined},
  swapBegin(dt){this.sw=null;if(!(MP.role==='host')||spawnT-dt>0)return null;const pl=mpTargets();if(!pl.length)return null;this.si=(this.si+1)%(pl.length+1);if(!this.si)return null;const r=pl[this.si-1],s={x:ship.x,y:ship.y,vx:ship.vx,vy:ship.vy,docked:ship.docked,wreck:ship.wreck,dead:ship.dead};ship.x=r.x;ship.y=r.y;ship.vx=r.vx||0;ship.vy=r.vy||0;ship.docked=null;ship.wreck=0;ship.dead=0;this.sw=s;return s},
  swapEnd(s){if(s){Object.assign(ship,s);this.sw=null}}};
@@ -861,9 +881,11 @@ function mpWorld(){const t=performance.now(),P={},ps=mpPos(),k=++MPS.tk,full=MPS
   P.dr=derel.filter(d=>!d.dead).map(d=>[d.id,Math.round(d.x),Math.round(d.y),d.z]);
   P.lt=loot.filter(l=>mpD(l)<7500).map(l=>[l.id,Math.round(l.x),Math.round(l.y),l.v,Math.round(l.life)])}
  if(k%20===0||full)P.af=ANOM.map((o,i)=>o.found?i:-1).filter(i=>i>=0);
- if(GEV.cur!==MPS.lg||full){MPS.lg=GEV.cur;if(GEV.cur){const o={};for(const f in GEV.cur){const v=GEV.cur[f];if(typeof v==='number'||typeof v==='string'||typeof v==='boolean')o[f]=v}P.ge=o}else P.ge=0}
+ if(GEV.cur!==MPS.lg||full||(k%20===0&&GEV.cur)){MPS.lg=GEV.cur;if(GEV.cur){const o={};for(const f in GEV.cur){const v=GEV.cur[f];if(typeof v==='number'||typeof v==='string'||typeof v==='boolean')o[f]=v}P.ge=o}else P.ge=0}
+ if(MPS.gq.length){P.gr=MPS.gq.filter(o=>o.k.life>0).map(o=>{const q=o.k;return[q.id,Math.round(q.x),Math.round(q.y),q.vx,q.vy,q.r,+q.life.toFixed(2),q.rot,q.vr,q.hot]});for(const o of MPS.gq)o.n--;MPS.gq=MPS.gq.filter(o=>o.n>0)}
+ if(MPS.gx.length){P.gx=MPS.gx.map(o=>o.id);for(const o of MPS.gx)o.n--;MPS.gx=MPS.gx.filter(o=>o.n>0)}
  P.pv=MP.pvp?1:0;MPS.full=0;return P}
-function mpEB(){for(const b of bullets)if((b.own==='e'||b.own==='g')&&!b.bid&&!b.gh){b.bid=1;MPS.eb.push([Math.round(b.x),Math.round(b.y),Math.round(b.vx),Math.round(b.vy),Math.round(b.d*10)/10,+b.life.toFixed(2),b.own==='e'?0:1,b.o&&b.o.id||0])}}
+function mpEB(){for(const b of bullets)if((b.own==='e'||b.own==='g')&&!b.bid&&!b.gh){b.bid=++MPS.ebn;b.bk='e'+b.bid;MPS.eb.push([Math.round(b.x),Math.round(b.y),Math.round(b.vx),Math.round(b.vy),Math.round(b.d*10)/10,+b.life.toFixed(2),b.own==='e'?0:1,b.o&&b.o.id||0,b.bid])}}
 /* invitado: aplica la instantánea */
 function mpGuestNpcs(dt){const k=Math.min(1,9*dt);for(const n of npcs){if(n.tx==null)continue;n.x+=(n.tx+n.vx*.06-n.x)*k;n.y+=(n.ty+n.vy*.06-n.y)*k;n.a+=angDiff(n.a,n.ta)*k}}
 let mpRsT=0;
@@ -882,10 +904,15 @@ function mpOnW(p){if(MP.role!=='guest'||!p)return;MPS.wt=performance.now();
  if(p.dr)derel=p.dr.map(q=>({id:q[0],x:q[1],y:q[2],z:q[3]})).filter(d=>!MPS.dd.has(d.id));
  if(p.lt){const ids=new Set(p.lt.map(q=>q[0]));for(const id of [...MPS.pk])if(!ids.has(id))MPS.pk.delete(id);loot=p.lt.filter(q=>!MPS.pk.has(q[0])).map(q=>({id:q[0],x:q[1],y:q[2],v:q[3],life:q[4]}))}
  if(p.af)for(const i of p.af)if(ANOM[i])ANOM[i].found=1;
- if(p.ge!==undefined){const had=!!GEV.cur;GEV.cur=p.ge||null;if(p.ge&&!had)toast(GEVMSG[p.ge.k]||'Evento en la zona');else if(!p.ge)gvRocks=[]}
- if(p.eb)for(const q of p.eb)bullets.push({x:q[0],y:q[1],vx:q[2],vy:q[3],d:q[4],life:q[5],own:q[6]?'g':'e',o:q[7]?npcs.find(n=>n.id===q[7])||null:null})}
+ if(p.ge!==undefined){const had=!!GEV.cur;if(p.ge&&GEV.cur&&GEV.cur.id===p.ge.id){for(const f in p.ge)if(f!=='in'&&f!=='fl'&&f!=='cx')GEV.cur[f]=p.ge[f]}else{GEV.cur=p.ge||null;if(p.ge&&!had)toast(GEVMSG[p.ge.k]||'Evento en la zona');else if(!p.ge)gvRocks=[]}}
+ if(p.gr)for(const q of p.gr){if(MPS.gs.has(q[0]))continue;MPS.gs.add(q[0]);gvRocks.push({id:q[0],x:q[1],y:q[2],vx:q[3],vy:q[4],r:q[5],life:q[6],rot:q[7],vr:q[8],hot:q[9],sh:gvSh(q[0])})}
+ if(p.gx)for(const id of p.gx){MPS.gs.add(id);const i=gvRocks.findIndex(r=>r.id===id);if(i>=0)gvRocks.splice(i,1)}
+ if(MPS.gs.size>600)MPS.gs=new Set([...MPS.gs].slice(-300));
+ if(p.eb)for(const q of p.eb)if(!(q[8]&&MPS.bhd.has('e'+q[8])))bullets.push({x:q[0],y:q[1],vx:q[2],vy:q[3],d:q[4],life:q[5],own:q[6]?'g':'e',o:q[7]?npcs.find(n=>n.id===q[7])||null:null,bk:q[8]?'e'+q[8]:null})}
 function mpOnSt2(p){const h=MP.role==='host';
- if(p.pb)for(const q of p.pb){const b={x:q[0],y:q[1],vx:q[2],vy:q[3],d:q[4],life:q[5],own:'p',o:null};if(h){b.by=p.id;b.rb=1}else b.gh=1;bullets.push(b)}
+ if(h){if(p.gk)for(const id of p.gk){const i=gvRocks.findIndex(r=>r.id===id);if(i>=0)gvRocks.splice(i,1);MPS.gx.push({n:3,id})}
+  if(p.tc&&GEV.cur&&GEV.cur.k==='tr')GEV.cur.cap=Math.max(0,GEV.cur.cap-p.tc);if(p.gd&&GEV.cur&&GEV.cur.id===p.gd)gvDone()}
+ if(p.pb)for(const q of p.pb){const b={x:q[0],y:q[1],vx:q[2],vy:q[3],d:q[4],life:q[5],own:'p',o:null};if(q[6])b.wg=1;if(q[7])b.lz=1;if(q[8]){b.bk=p.id+'/'+q[8];if(MPS.bhd.has(b.bk))continue}if(h){b.by=p.id;b.rb=1}else b.gh=1;bullets.push(b)}
  if(h){if(p.mi)for(const[id,m]of p.mi)mpMineApply(id,m);if(p.mc)for(const[id,m]of p.mc){const c=cmts.find(q=>q.id===id);if(c)c.ore=Math.max(0,c.ore-m)}
   if(p.lp)for(const id of p.lp){const i=loot.findIndex(l=>l.id===id);if(i>=0)loot.splice(i,1)}}
  else if(p.w)mpOnW(p.w)}
@@ -899,18 +926,21 @@ function mpCxShare(k){if(MP.role)mpBc('cx',{ks:[k],n:MP.name})}
 function mpCxAll(){if(MP.role&&Object.keys(CXD).length)mpBc('cx',{ks:Object.keys(CXD),n:MP.name,q:1})}
 function mpOnCx(p){if(!p||!p.ks)return;let nw=0;for(const k of p.ks)if(CXT[k]&&!CXD[k]){CXD[k]={o:Object.keys(CXD).length+1,k:0};nw++;if(!p.q)toast('📡 Codex: '+CXT[k].n+' descubierta por '+mpEsc(mpClean(p.n)||'un piloto'))}if(nw){try{saveGame()}catch(e){}}}
 function mpOnAf(p){if(p&&ANOM[p.i])ANOM[p.i].found=1}
+/* un disparo que impacta a un jugador desaparece en la vista de todos */
+function mpBh(b){if(MP.role&&b.bk)mpBc('bh',{k:b.bk})}
+function mpOnBh(p){if(!p||typeof p.k!=='string'||p.k.length>40)return;MPS.bhd.add(p.k);if(MPS.bhd.size>400)MPS.bhd=new Set([...MPS.bhd].slice(-200));for(const b of bullets)if(b.bk===p.k&&b.life>0){b.life=0;boom(b.x,b.y,4,b.own==='p'?'#f96':'#6cf')}}
 function mpOnDr(p){if(!p)return;MPS.dd.add(p.id);for(const d of derel)if(d.id===p.id)d.dead=1}
 /* mapa: los jugadores solo se ven si activan «Mostrar mi ubicación» */
-function mpMapDraw(X,Y){if(!MP.role)return;for(const k in MPR){const r=MPR[k];if(!r.sh||r.sx==null||performance.now()-r.t>8000)continue;const x=X(r.x),y=Y(r.y);g.save();g.translate(x,y);g.rotate(r.a||0);g.fillStyle='#7dff9b';g.beginPath();g.moveTo(8,0);g.lineTo(-6,-6);g.lineTo(-3,0);g.lineTo(-6,6);g.closePath();g.fill();g.restore();txt(r.n||'?',x+11,y+4,'#7dff9b','left',11)}}
+function mpMapDraw(X,Y){if(!MP.role)return;for(const k in MPR){const r=MPR[k];if(!r.sh||r.sx==null||performance.now()-r.t>8000)continue;const x=X(r.x),y=Y(r.y),c=r.wk?'#ffd166':r.dk?'#4fd1ff':'#7dff9b';g.save();g.translate(x,y);g.rotate(r.a||0);g.fillStyle=c;g.strokeStyle='#05070d';g.lineWidth=1;g.beginPath();g.moveTo(8,0);g.lineTo(-6,-6);g.lineTo(-3,0);g.lineTo(-6,6);g.closePath();g.fill();g.stroke();g.restore();txt((r.n||'?')+(r.wk?' · inutilizada':''),x+11,y+4,c,'left',11)}}
 $('ui').insertAdjacentHTML('beforeend','<button class="sq hide" id="bShare" style="position:absolute;left:14px;top:96px;pointer-events:auto"></button>');
-$('bShare').onclick=()=>{MP.share=!MP.share;toast(MP.share?'Ahora los demás ven tu ubicación en el mapa':'Tu ubicación en el mapa está oculta')};
+$('bShare').onclick=()=>{MP.share=MP.share?0:1;try{localStorage.setItem('starluge_mpshare',MP.share?'1':'0')}catch(e){}toast(MP.share?'Ahora los demás ven tu ubicación en el mapa':'Tu ubicación en el mapa está oculta')};
 setInterval(()=>{const b=$('bShare');if(!b)return;const v=!!(MPG&&MP.role&&mapV());b.classList.toggle('hide',!v);if(v)b.textContent='Mi ubicación: '+(MP.share?'VISIBLE':'OCULTA')},300);
 function worldUpd(dt){if(mpSlave()){spawnT=3;cmT=1e9;GEV.t=1e9}
   evUpd(dt);miniEv(dt);gevTick(dt);derel=derel.filter(d=>!d.dead);
   if(state!=='menu'){if(!BAL.comet.on())cmT=Math.max(cmT,BAL.comet.first);else{cmT-=dt;if(cmT<=0){cmT=rnd(BAL.comet.cd[0],BAL.comet.cd[1]);mpAt(spawnComet)}}}
   for(const c of cmts){c.x+=c.vx*dt;c.y+=c.vy*dt;c.age+=dt;c.rot+=dt*.6;if(c.r0)c.r=c.r0*(.4+.6*Math.sqrt(Math.max(0,c.ore)/c.o0));
     if(dist(c,ship)<2600&&Math.random()<dt*70){const sp=Math.hypot(c.vx,c.vy)||1,an=Math.atan2(c.vy,c.vx)+rnd(-.5,.5);parts.push({x:c.x-c.vx/sp*c.r*.8+rnd(-c.r,c.r)*.4,y:c.y-c.vy/sp*c.r*.8+rnd(-c.r,c.r)*.4,vx:-Math.cos(an)*rnd(20,90),vy:-Math.sin(an)*rnd(20,90),life:rnd(.6,1.6),max:1.6,c:'rgb('+CK[c.k].c+')'})}
-    if(!ship.docked&&state!=='ship'&&dist(c,ship)<c.r+16&&(ship.cck||0)<time){ship.cck=time+3;comHit(c)}}
+    if(!ship.docked&&!shSafe()&&dist(c,ship)<c.r+16&&(ship.cck||0)<time){ship.cck=time+3;comHit(c)}}
   cmts=cmts.filter(c=>!c.dead&&c.age<260&&(c.age<25||mpD(c)<7000));
   if(ship.mc){const c=ship.mc;if(c.dead||!cmts.includes(c)||!on('col')||!eff('min')||ship.docked)ship.mc=null;else if(dist(c,ship)>230)ship.dest={x:c.x,y:c.y,stop:150,auto:1};else{ship.dest=null;{const dx=c.x-ship.x,dy=c.y-ship.y,dd=Math.hypot(dx,dy)||1,pl2=(dd-150)*1.2;ship.vx=c.vx+dx/dd*pl2;ship.vy=c.vy+dy/dd*pl2}const m=Math.min(c.ore,T.mine*2*eff('min')*dt);c.ore-=m;mpMinedC(c.id,m);ship.cm=ship.cm||{};ship.cm[c.k]=(ship.cm[c.k]||0)+m;ship.beam={x:c.x,y:c.y,c:CK[c.k].mc};mineFx(c,CK[c.k].mc,dt,c.r||20);if(c.ore<=.01){c.dead=1;boom(c.x,c.y,10,'#cff');toast('Cometa recolectado')}}}
   // apariciones
@@ -936,9 +966,9 @@ function worldUpd(dt){if(mpSlave()){spawnT=3;cmT=1e9;GEV.t=1e9}
   MPS.swapEnd(_sw);const bs=npcs.find(q=>q.boss);
   if(warnT<=0&&!ship.docked&&npcs.some(q=>q.team==='e'&&dist(q,ship)<800)){warnT=15;toast('⚠ Enemigo cerca')}
   if(mpSlave())mpGuestNpcs(dt);else for(const n of npcs){if(n.gv)continue;if(n.evs){n.vx=n.vy=0;continue}let tg=null,td=n.team==='e'?(n.agr||900):1500,d,ax=0,ay=0;
-    if(n.team==='e'){for(const o of npcs)if((o.team==='g'||o.team==='r')&&(d=dist(n,o))<td){td=d;tg=o}if(!ship.docked&&!ship.wreck&&state!=='ship'&&(d=dist(n,ship))<td){td=d;tg=ship}for(const o of wing)if(o.hp>0&&!o.jp&&(d=dist(n,o))<td){td=d;tg=o}for(const o of mpTargets())if((d=dist(n,o))<td){td=d;tg=o}}
-    else{for(const o of npcs)if(o.team==='e'&&(n.om?dist(o,OM)<2800:(dist(o,A)<C.safeR||dist(o,ship)<700))&&(d=dist(n,o))<td){td=d;tg=o}if((n.om?omHostile():wanted)&&!ship.docked&&!ship.wreck&&state!=='ship'&&(d=dist(n,ship))<td){td=d;tg=ship}}
-    if(n.team==='e'&&!n.boss&&!n.role){const c=n.ch;if(tg)n.ch=tg;else if(c){const gone=(c===ship&&(ship.docked||ship.wreck||ship.dead>0||state==='ship'||state==='warp'))||(c!==ship&&(c.hp<=0||c.jp))||dist(n,c)>2400;if(gone)n.ch=null;else{tg=c;td=dist(n,c)}}}
+    if(n.team==='e'){for(const o of npcs)if((o.team==='g'||o.team==='r')&&(d=dist(n,o))<td){td=d;tg=o}if(!ship.docked&&!ship.wreck&&!shSafe()&&(d=dist(n,ship))<td){td=d;tg=ship}for(const o of wing)if(o.hp>0&&!o.jp&&(d=dist(n,o))<td){td=d;tg=o}for(const o of mpTargets())if((d=dist(n,o))<td){td=d;tg=o}}
+    else{for(const o of npcs)if(o.team==='e'&&(n.om?dist(o,OM)<2800:(dist(o,A)<C.safeR||dist(o,ship)<700))&&(d=dist(n,o))<td){td=d;tg=o}if((n.om?omHostile():wanted)&&!ship.docked&&!ship.wreck&&!shSafe()&&(d=dist(n,ship))<td){td=d;tg=ship}if(n.om)for(const o of mpTargets())if(!o.cd&&dist(o,OM)<OM.r+2600&&(d=dist(n,o))<td){td=d;tg=o}}
+    if(n.team==='e'&&!n.boss&&!n.role){const c=n.ch;if(tg)n.ch=tg;else if(c){const gone=(c===ship&&(ship.docked||ship.wreck||ship.dead>0||shSafe()||state==='warp'))||(c!==ship&&(c.hp<=0||c.jp))||dist(n,c)>2400;if(gone)n.ch=null;else{tg=c;td=dist(n,c)}}}
     n.cd-=dt;n.heal=0;if(n.team==='e'){if(n.hp<n.max*.35)n.fled=1;else if(n.hp>=n.max-.01)n.fled=0;if(n.hp<n.max&&time-(n.lh||-99)>20)n.hp=Math.min(n.max,n.hp+n.max*.07*dt)}
     const ro=bs&&!n.boss?n.role:0,fl=n.team==='e'&&n.fled&&(n.boss||!n.role);
     const mv=(x,y,sp)=>{const a=Math.atan2(y-n.y,x-n.x),dd=Math.hypot(x-n.x,y-n.y);n.a+=clamp(angDiff(n.a,a),-1,1)*4*dt;ax=Math.cos(n.a)*sp*Math.min(1,dd/80);ay=Math.sin(n.a)*sp*Math.min(1,dd/80)};
@@ -957,15 +987,17 @@ function worldUpd(dt){if(mpSlave()){spawnT=3;cmT=1e9;GEV.t=1e9}
   wingUpd(dt);if(MP.role==='host')mpEB();
   // balas
   const hit=(n,b)=>Math.hypot(n.x-b.x,n.y-b.y)<(n.rad||18);
-  for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;for(const a of asts)if(Math.hypot(a.x-b.x,a.y-b.y)<a.r){b.life=0;boom(b.x,b.y,3,'#99a');break}if(b.life<=0)continue;if(b.own==='p'&&!b.sent&&!b.gh&&!b.rb&&MP.role){b.sent=1;MPS.pb.push([Math.round(b.x),Math.round(b.y),Math.round(b.vx),Math.round(b.vy),b.d,+b.life.toFixed(2)])}if(MP.pvp&&MP.role&&(b.gh||b.rb)&&b.own==='p'&&!ship.dead&&!ship.docked&&state!=='ship'&&state!=='hangar'&&hit(ship,b)){b.life=0;hurt(b.d,'⚔ Otro piloto te dispara',Math.atan2(-b.vy,-b.vx));boom(b.x,b.y,5,'#f96');continue}if(b.gh)continue;
-    if(b.own==='e'){if(state==='ship'&&!ship.dead&&!ship.docked&&hit(ship,b)){b.life=0;shHitT=time;shHitA=Math.atan2(b.y-ship.y,b.x-ship.x);boom(b.x,b.y,5,'#6cf')}else if(!ship.dead&&!ship.docked&&state!=='ship'&&hit(ship,b)){b.life=0;hurt(b.d,'⚠ Enemigo atacando: tu nave recibe daño',Math.atan2(-b.vy,-b.vx));if(b.o)b.o.hostile=time;hitInd(b);boom(b.x,b.y,5,'#6cf')}
+  for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;for(const a of asts)if(Math.hypot(a.x-b.x,a.y-b.y)<a.r){b.life=0;boom(b.x,b.y,3,'#99a');break}if(b.life<=0)continue;if((b.own==='p'||b.own==='w')&&!b.sent&&!b.gh&&!b.rb&&MP.role){b.sent=1;b.bk=MP.id+'/'+(++MPS.pbn);MPS.pb.push([Math.round(b.x),Math.round(b.y),Math.round(b.vx),Math.round(b.vy),b.d,+b.life.toFixed(2),b.own==='w'?1:0,b.lz?1:0,MPS.pbn])}if(MP.pvp&&MP.role&&(b.gh||b.rb)&&b.own==='p'&&!ship.dead&&!ship.docked&&!shSafe()&&state!=='hangar'&&hit(ship,b)){b.life=0;mpBh(b);hurt(b.d,'⚔ Otro piloto te dispara',Math.atan2(-b.vy,-b.vx));boom(b.x,b.y,5,'#f96');continue}
+    if(MP.pvp&&MP.role&&(b.gh||b.rb)&&b.own==='p'){let hw=0;for(const w of wing)if(w.hp>0&&!w.jp&&Math.hypot(w.x-b.x,w.y-b.y)<18){b.life=0;mpBh(b);const q=Math.min(w.shd||0,b.d);w.shd=(w.shd||0)-q;w.hp-=b.d-q;w.lh=time;boom(b.x,b.y,4,'#f96');hw=1;break}if(hw)continue}
+    if(b.gh)continue;
+    if(b.own==='e'){if(shSafe()&&!ship.dead&&!ship.docked&&hit(ship,b)){b.life=0;mpBh(b);shHitT=time;shHitA=Math.atan2(b.y-ship.y,b.x-ship.x);boom(b.x,b.y,5,'#6cf')}else if(!ship.dead&&!ship.docked&&!shSafe()&&hit(ship,b)){b.life=0;mpBh(b);hurt(b.d,'⚠ Enemigo atacando: tu nave recibe daño',Math.atan2(-b.vy,-b.vx));if(b.o)b.o.hostile=time;hitInd(b);boom(b.x,b.y,5,'#6cf')}
       else if(wHit(b)){}else for(const n of npcs)if((n.team==='g'||n.team==='r')&&n.hp>0&&hit(n,b)){b.life=0;n.hp-=b.d*(n.team==='r'?.35:1);boom(b.x,b.y,4,'#6cf');break}}
-    else if(b.own==='p'&&gHit(b)){}
-    else if(b.own==='g'&&(b.o&&b.o.om?omHostile():wanted)&&!ship.dead&&!ship.docked&&state!=='ship'&&hit(ship,b)){b.life=0;hurt(b.d,b.o&&b.o.om?'⚠ Guardia de Omega: acceso restringido':'⚠ La guardia de Alfa te ataca',Math.atan2(-b.vy,-b.vx));if(ship.wreck&&b.o&&b.o.om)cxFind({cxk:'go'});boom(b.x,b.y,5,'#6cf')}
+    else if(b.own==='p'&&!b.wg&&gHit(b)){}
+    else if(b.own==='g'&&(b.o&&b.o.om?omHostile():wanted)&&!ship.dead&&!ship.docked&&!shSafe()&&hit(ship,b)){b.life=0;mpBh(b);hurt(b.d,b.o&&b.o.om?'⚠ Guardia de Omega: acceso restringido':'⚠ La guardia de Alfa te ataca',Math.atan2(-b.vy,-b.vx));if(ship.wreck&&b.o&&b.o.om)cxFind({cxk:'go'});boom(b.x,b.y,5,'#6cf')}
     else for(const n of npcs)if(n.team==='e'&&n.hp>0&&hit(n,b)){b.life=0;if(mpSlave()||b.gh){boom(b.x,b.y,5,'#f66');break}n.hp-=b.d;n.lh=time;if(b.own==='p'&&!b.by){lastShot=n;lastShotT=time}boom(b.x,b.y,5,'#f66');
-      if(n.hp<=0){boom(n.x,n.y,26,'#ff8a5c');for(let i=0;i<(n.boss?14:3);i++)loot.push({x:n.x+rnd(-25,25),y:n.y+rnd(-25,25),v:(n.boss?6:2)+((Math.random()*4)|0),life:120});if(b.own==='p'){if(b.by)mpKill(b.by,n);else{cxFind(n);ship.cred+=n.boss?250:20;toast(n.boss?'¡Jefe pirata destruido! +250 cr':'Pirata destruido: +20 cr')}}}break}}
+      if(n.hp<=0){boom(n.x,n.y,26,'#ff8a5c');for(let i=0;i<(n.boss?14:3);i++)loot.push({x:n.x+rnd(-25,25),y:n.y+rnd(-25,25),v:(n.boss?6:2)+((Math.random()*4)|0),life:120});if(b.own==='p'&&!b.wg){if(b.by)mpKill(b.by,n);else{cxFind(n);ship.cred+=n.boss?250:20;toast(n.boss?'¡Jefe pirata destruido! +250 cr':'Pirata destruido: +20 cr')}}}break}}
   bullets=bullets.filter(b=>b.life>0);for(const n of npcs)if(n.hp<=0&&n.team==='e'&&!n.kc){n.kc=1;qEv('kill');BAL.st.lk=time}npcs=npcs.filter(n=>n.hp>0);}
-function upd(dt){hgTick(dt);if(state!=='menu'){qTick(dt);trlTick(dt);sczTick();if(state==='play')shipCol(dt)}
+function upd(dt){hgTick(dt);if(state!=='menu'){qTick(dt);trlTick(dt);sczTick();if(state==='play'||(MP.role&&(state==='pause'||state==='ship')))shipCol(dt)}
   for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}parts=parts.filter(p=>p.life>0);
   for(const q of sucks){q.px=q.x;q.py=q.y;q.life-=dt;const k=Math.min(1,9*dt);q.x+=(ship.x-q.x)*k;q.y+=(ship.y-q.y)*k;if(dist(q,ship)<14)q.life=0}sucks=sucks.filter(q=>q.life>0);
   if(wanted&&time>wantT){wanted=0;toast('La guardia de Alfa ya no te persigue')}
@@ -995,11 +1027,11 @@ function upd(dt){hgTick(dt);if(state!=='menu'){qTick(dt);trlTick(dt);sczTick();i
   if(ship.docked){const f=Math.max(0,1-5*dt);ship.vx*=f;ship.vy*=f}
   {const vm=Math.hypot(ship.vx,ship.vy),vc=mxB*(T.sh==='e'?tmx():1.6)+60;if(vm>vc&&!CFG.ie){const f=Math.max(vc/vm,1-1.5*dt);ship.vx*=f;ship.vy*=f}}
   ship.x+=ship.vx*dt;ship.y+=ship.vy*dt;if(state==='play')qEv('dst',Math.hypot(ship.vx,ship.vy)*dt);
-  if(!ship.docked&&state!=='ship')for(const a of asts){const dx=ship.x-a.x,dy=ship.y-a.y,d=Math.hypot(dx,dy),Rr=a.r+16;
+  if(!ship.docked&&!shSafe())for(const a of asts){const dx=ship.x-a.x,dy=ship.y-a.y,d=Math.hypot(dx,dy),Rr=a.r+16;
     if(d<Rr&&d>0){const nx=dx/d,ny=dy/d,vn=ship.vx*nx+ship.vy*ny;ship.x=a.x+nx*Rr;ship.y=a.y+ny*Rr;
       if(vn<0){ship.vx-=1.5*vn*nx;ship.vy-=1.5*vn*ny;if(ship.cool<=0&&-vn>50){ship.cool=.6;ship.dest=null;hurt(-vn*.08,'⚠ Choque con asteroide: la nave recibe daño',Math.atan2(-ny,-nx));boom(ship.x-nx*16,ship.y-ny*16,8,'#ffb347')}}}}
   ship.inB=ship.inA;ship.inA=0;for(const o of ANOM){o.cd=Math.max(0,(o.cd||0)-dt);const d=dist(ship,o);if(d<2000){if(!o.found&&MP.role)mpBc('af',{i:ANOM.indexOf(o)});o.found=1}if(o.t!=='w'){const q=d<o.r0*3?o.r0*1.8:o.r0;o.r+=(q-o.r)*Math.min(1,.8*dt)}
-    if(d<o.r&&!ship.docked&&state!=='ship'){if(!o.in){o.in=1;if(o.t==='e')toast('Nube de energía: salto recargándose');else if(o.t==='i')toast('¡Campo de iones! Escudo drenándose')}
+    if(d<o.r&&!ship.docked&&!shSafe()){if(!o.in){o.in=1;if(o.t==='e')toast('Nube de energía: salto recargándose');else if(o.t==='i')toast('¡Campo de iones! Escudo drenándose')}
       if(o.t!=='w'){ship.inA=1;const k=o.t==='i'?260:150,px=(o.x-ship.x)/Math.max(d,1),py=(o.y-ship.y)/Math.max(d,1);ship.vx+=px*k*dt;ship.vy+=py*k*dt}if(o.t==='e')ship.en=Math.min(100,ship.en+22*dt);
       else if(o.t==='i'){if(ship.shd>0)ship.shd=Math.max(0,ship.shd-14*dt);else hurt(3*dt)}
       else if(o.t==='w'&&!o.cd&&d<110){o.cd=120;const n=8+((Math.random()*7)|0);ship.scrap+=n;qEv('scrap',n);ship.cred+=30;toast('Pecio saqueado: +'+n+' chatarra, +30 cr')}}
@@ -1132,7 +1164,7 @@ function drawWorld(){VX=cam.x;VY=cam.y;VRd=Math.hypot(W,H)/zoom;g.fillStyle='#02
   drawEv();drawGev();for(const d of derel){if(!vis(d.x,d.y,80))continue;drawS(d.x,d.y,time*.3,'t','#777',1.3,DEAD);if(Math.sin(time*6)>0){g.fillStyle='#ffb347';g.fillRect(d.x-3,d.y-3,6,6)}}
   for(const l of loot){if(!vis(l.x,l.y,20))continue;g.save();g.translate(l.x,l.y);g.rotate(time*2);g.fillStyle='#8fd6c8';g.fillRect(-3,-3,6,6);g.restore()}drawFx();
   drawBul();
-  for(const w of wing)if(vis(w.x,w.y,150)){drawS(w.x,w.y,w.a,w.sh,w.col,.9,{h:w.hp/w.max,th:.5});}for(const r of [...svc,...svr]){if(r.tow&&ship.wreck){const sx=ship.x,sy=ship.y,ex=r.x-Math.cos(r.a)*10,ey=r.y-Math.sin(r.a)*10,dd=Math.hypot(ex-sx,ey-sy),nx=-(ey-sy)/(dd||1),ny=(ex-sx)/(dd||1),tn=r.tn||0;g.save();g.lineCap='round';for(const o of[-1,1]){g.strokeStyle='rgba(255,209,102,'+(.35+.4*tn)+')';g.lineWidth=2.2;g.beginPath();g.moveTo(sx+nx*o*9,sy+ny*o*9);g.lineTo(ex+nx*o*3,ey+ny*o*3);g.stroke()}g.strokeStyle='rgba(255,240,180,'+(.5+.4*Math.sin(time*18))+')';g.lineWidth=1.4;g.setLineDash([6,10]);g.lineDashOffset=-time*140;g.beginPath();g.moveTo(sx,sy);g.lineTo(ex,ey);g.stroke();g.setLineDash([]);g.fillStyle='rgba(255,209,102,.9)';g.beginPath();g.arc(sx,sy,3.5,0,TAU);g.fill();g.beginPath();g.arc(ex,ey,3.5,0,TAU);g.fill();g.restore();if(Math.random()<.4)parts.push({x:r.x-Math.cos(r.a)*14,y:r.y-Math.sin(r.a)*14,vx:-Math.cos(r.a)*60,vy:-Math.sin(r.a)*60,life:.4,max:.4,c:'#ffb347'})}if(vis(r.x,r.y,150))drawS(r.x,r.y,r.a,r.sh,r.col,.9)}
+  for(const w of wing)if(vis(w.x,w.y,150)){if(w.jp)wjDraw(w.x,w.y,w.a,wjCode(w),w.vx,w.vy);if(w.rg){const hq=WRS.get(w);if(hq)mpRope(hq.x,hq.y,w.x,w.y,true)}drawS(w.x,w.y,w.a,w.sh,w.col,.9,{h:w.hp/w.max,th:.5});}for(const r of [...svc,...svr]){if(r.tow&&ship.wreck){const sx=ship.x,sy=ship.y,ex=r.x-Math.cos(r.a)*10,ey=r.y-Math.sin(r.a)*10,dd=Math.hypot(ex-sx,ey-sy),nx=-(ey-sy)/(dd||1),ny=(ex-sx)/(dd||1),tn=r.tn||0;g.save();g.lineCap='round';for(const o of[-1,1]){g.strokeStyle='rgba(255,209,102,'+(.35+.4*tn)+')';g.lineWidth=2.2;g.beginPath();g.moveTo(sx+nx*o*9,sy+ny*o*9);g.lineTo(ex+nx*o*3,ey+ny*o*3);g.stroke()}g.strokeStyle='rgba(255,240,180,'+(.5+.4*Math.sin(time*18))+')';g.lineWidth=1.4;g.setLineDash([6,10]);g.lineDashOffset=-time*140;g.beginPath();g.moveTo(sx,sy);g.lineTo(ex,ey);g.stroke();g.setLineDash([]);g.fillStyle='rgba(255,209,102,.9)';g.beginPath();g.arc(sx,sy,3.5,0,TAU);g.fill();g.beginPath();g.arc(ex,ey,3.5,0,TAU);g.fill();g.restore();if(Math.random()<.4)parts.push({x:r.x-Math.cos(r.a)*14,y:r.y-Math.sin(r.a)*14,vx:-Math.cos(r.a)*60,vy:-Math.sin(r.a)*60,life:.4,max:.4,c:'#ffb347'})}if(vis(r.x,r.y,150))drawS(r.x,r.y,r.a,r.sh,r.col,.9)}
   for(const n of npcs){if(n.evs||!vis(n.x,n.y,150))continue;const e=n.team==='e';drawS(n.x,n.y,n.a,!e?'g':n.boss?'bos':n.role==='p'?'esp':n.role==='t'?'est':n.role==='a'?'esa':'pir',!e?(n.om?'#ff9a4f':'#9fe8ff'):n.boss?'#ff9a4f':n.role==='p'?'#ffd166':n.role==='t'?'#c792ff':'#ff5c5c',n.boss?2.4:n.om?1.05:.85,{h:n.hp/n.max,th:.5});
     if(n.heal){const bo=npcs.find(q=>q.boss);if(bo){g.strokeStyle='#c792ff';g.lineWidth=2;g.beginPath();g.moveTo(n.x,n.y);g.lineTo(bo.x,bo.y);g.stroke()}}
     }
@@ -1377,7 +1409,7 @@ function engHeat(dt,mxB){if(T.sh!=='e'||ship.dead>0){ship.eh=0;ship.ehR=0;ship.f
  ship.eh=hf>0?Math.min(100,(ship.eh||0)+100/EHT.heat*hf*dt):Math.max(0,(ship.eh||0)-100/EHT.cool*dt);
  if(ship.eh>=100){ship.ehR=EHT.rest;ship.dest=null;ship.thr=1;thrUI();toast('⚠ Motores sobrecalentados: se apagan '+EHT.rest+' s');boom(ship.x,ship.y,14,'#ff6b3a');return}
  const sm=u=>u*u*(3-2*u),km=sm(clamp((r-2)/(tm-2),0,1)),k=spd>30?.05*clamp(r-1,0,1)+.95*km:0,kw=sm(clamp((r-(tm-.4))/.4,0,1));
- ship.ft=(ship.ft||[]).filter(q=>(q.t+=dt)<1.3);if(k>.01)ship.ft.push({x:ship.x,y:ship.y,a:ship.a,k,kw,t:0})}
+ ship.ft=(ship.ft||[]).filter(q=>(q.t+=dt)<1.3);ship.fk=k>.01?k:0;if(k>.01)ship.ft.push({x:ship.x,y:ship.y,a:ship.a,k,kw,t:0})}
 function fxTrail(){if(warp||T.sh!=='e'||!ship.ft||ship.ft.length<2)return;const l0=ship.ft[ship.ft.length-1],P=l0.t<.2?ship.ft.concat([{x:ship.x,y:ship.y,a:ship.a,k:l0.k,t:0}]):ship.ft,L=1.3,n=P.length,hd=P[n-1],tl=P[0];g.save();g.lineJoin='round';
  /* cinta fina que se afila hacia atrás: halo suave + núcleo claro, sin mezcla aditiva */
  for(const[wd,al,col]of[[2.6,.09,'120,210,255'],[1.8,.13,'120,210,255'],[1.1,.2,'140,220,255'],[.45,.9,'240,252,255']]){const up=[],dn=[];
@@ -1557,7 +1589,7 @@ function qGen(){const pend=QZ.jobs.filter(p=>{const s=(QZ.s[p.id]||{s:'available
   const p=G[k]();if(p){QZ.jobs.push(Object.assign({id:'j'+(++QZ.jn)},p));return}ks=ks.filter(q=>q!==k)}}
 /* ===== EVENTOS GALÁCTICOS: flota de peaje, tormenta de iones, meteoritos, mercader, cápsula ===== */
 const GEV={t:110,cur:null};let gvRocks=[];
-const gvAr=a=>'→↘↓↙←↖↑↗'[Math.round((((a%TAU)+TAU)%TAU)/(TAU/8))%8],gvTot=()=>Object.values(ship.inv).reduce((a,b)=>a+b,0),gvFar=(x,y,m)=>BASES.every(b=>Math.hypot(b.x-x,b.y-y)>b.r+m),gvDone=()=>{GEV.cur=null;GEV.t=rnd(140,240)};
+const gvAr=a=>'→↘↓↙←↖↑↗'[Math.round((((a%TAU)+TAU)%TAU)/(TAU/8))%8],gvTot=()=>Object.values(ship.inv).reduce((a,b)=>a+b,0),gvFar=(x,y,m)=>BASES.every(b=>Math.hypot(b.x-x,b.y-y)>b.r+m),gvDone=()=>{const e0=GEV.cur;GEV.cur=null;GEV.t=rnd(140,240);if(mpSlave()&&e0&&e0.id)MPS.gd=e0.id};
 
 /* Áreas de eventos (tormenta de iones, lluvia de meteoritos): solo en minimapa y mapa, como mancha irregular aproximada */
 const gevBlob=(cx,cy,r,sd)=>{g.beginPath();for(let i=0;i<=64;i++){const a=i/64*TAU,k=1+.28*(Math.sin(a*2+sd)*.45+Math.sin(a*3+sd*1.9)*.35+Math.sin(a*4+sd*.6)*.2),x=cx+Math.cos(a)*r*k,y=cy+Math.sin(a)*r*k;i?g.lineTo(x,y):g.moveTo(x,y)}g.closePath()};
@@ -1567,23 +1599,31 @@ function gevEnd(){npcs=npcs.filter(n=>!n.gv);gvRocks=[];gvDone()}
 function gvShips(n,hostile,ang,R){const dx=Math.cos(ang),dy=Math.sin(ang);for(let i=0;i<n;i++){const o=i-(n-1)/2,e=balE(mk('e',ship.x+dx*(R+Math.abs(o)*70)-dy*o*80,ship.y+dy*(R+Math.abs(o)*70)+dx*o*80,{x:ship.x,y:ship.y}));e.a=ang+Math.PI;e.slot=i/n*TAU;if(hostile)e.agr=2500;else e.gv=1;npcs.push(e)}}
 function gvHostile(m){for(const c of npcs)if(c.gv){c.gv=0;c.agr=2500}toast(m);gvDone()}
 function gvPay(){const E=GEV.cur;let n=E.need;for(const k of Object.keys(ship.inv).sort((a,b)=>(MIN[a]||[0,0,1])[2]-(MIN[b]||[0,0,1])[2])){const t=Math.min(n,ship.inv[k]);ship.inv[k]-=t;ship.ore=Math.max(0,ship.ore-t);n-=t}if(n>0)ship.scrap=Math.max(0,(ship.scrap|0)-Math.ceil(n));E.ph='go';E.t=0;toast('✔ Peaje pagado: la flota se retira')}
-function gevPick(){if(!gvFar(ship.x,ship.y,3200)){GEV.t=15;return}
+function gevPick(){const h0=GEV.cur;gevPick0();if(GEV.cur&&GEV.cur!==h0)GEV.cur.id=(Date.now()%1e9)|0}
+function gevPick0(){if(!gvFar(ship.x,ship.y,3200)){GEV.t=15;return}
  const o=[['cv',MPS.gt||MP.role==='host'&&mpGroup().n>1?3:Math.hypot(ship.vx,ship.vy)>70?3:0],['st',2],['mt',2],['tr',1.5],['cr',2]];let s=o.reduce((a,b)=>a+b[1],0)*Math.random(),k='st';for(const[q,w]of o)if((s-=w)<=0){k=q;break}
  const a=rnd(0,TAU),ca=Math.cos(a),sa=Math.sin(a),st=BAL.stage();
  if(k==='cv'&&MP.role==='host'&&(MPS.gt||mpGroup().n>1)){const G=mpGroup(),n=4+Math.min(st,2)+3*(G.n-1)+(MPS.gt&&G.n<2?2:0),R=1400+G.sep;ship.x=G.x;ship.y=G.y;MPS.gg=1;for(let i=0;i<n;i++){const a2=i/n*TAU+rnd(0,.3),e=balE(mk('e',ship.x+Math.cos(a2)*R,ship.y+Math.sin(a2)*R,{x:ship.x,y:ship.y}));e.a=a2+Math.PI;e.agr=2500;npcs.push(e)}toast(G.n>1?'⚠ Una flota desconocida hostil rodea a los pilotos: '+n+' naves':'⚠ Flota desconocida hostil se acerca: '+n+' naves');GEV.t=40;return}
  if(k==='cv'){const n=4+Math.min(st,2);GEV.cur={k,ph:'arr',n,need:Math.min(Math.max(3,Math.ceil(T.cargo*.35)),5+st*3),t:0,lim:25,tm:1e9};gvShips(n,0,a,1700);toast('⚠ Flota desconocida en formación: se acerca a tu posición')}
- else if(k==='st'){GEV.cur={k,x:ship.x+ca*rnd(0,900),y:ship.y+sa*rnd(0,900),vx:rnd(-25,25),vy:rnd(-25,25),r:1500,tm:55,fl:2};toast('⚡ Tormenta de iones: drena los escudos. Sal de la zona')}
- else if(k==='mt'){GEV.cur={k,tm:65,sp:0,d:a,zx:ship.x,zy:ship.y,zr:3000,in:1};toast('☄ Lluvia de meteoritos en una zona amplia: esquiva o destrúyelos (sueltan chatarra) o sal de ella para ponerte a salvo')}
+ else if(k==='st'){GEV.cur={k,x:ship.x+ca*rnd(0,900),y:ship.y+sa*rnd(0,900),vx:rnd(-25,25),vy:rnd(-25,25),r:1500,tm:55,fl:2,sd:rnd(0,50)};toast('⚡ Tormenta de iones: drena los escudos. Sal de la zona')}
+ else if(k==='mt'){GEV.cur={k,tm:65,sp:0,d:a,zx:ship.x,zy:ship.y,zr:3000,in:1,sd:rnd(0,50)};toast('☄ Lluvia de meteoritos en una zona amplia: esquiva o destrúyelos (sueltan chatarra) o sal de ella para ponerte a salvo')}
  else if(k==='tr'){const h=rnd(0,TAU);GEV.cur={k,x:ship.x+ca*900,y:ship.y+sa*900,vx:0,vy:0,a:h,tm:110,sp:rnd(55,85),cap:Math.round(rnd(14,24)),cx:0};toast('📡 Mercader errante cerca: sigue la señal · compra mineral (stock limitado) y repara el casco')}
  else{GEV.cur={k,x:ship.x+ca*1100,y:ship.y+sa*1100,tm:120};toast('📦 Cápsula de suministros a la deriva: ve a por ella')}}
+function gvSh(id){return Array.from({length:9},(_,i)=>{const v=Math.sin(id*12.9898+i*78.233)*43758.5453;return .72+.43*(v-Math.floor(v))})}
+function gvAddRock(px,py,E){const c=Math.cos(E.d),s=Math.sin(E.d),o=rnd(-900,900),v=rnd(560,860),id=++MPS.rid+(MP.role==='host'?1e6:0);
+ const k={id,x:Math.round(px-c*1500-s*o),y:Math.round(py-s*1500+c*o),vx:Math.round(c*v),vy:Math.round(s*v),r:+(Math.random()<.22?rnd(24,36):rnd(9,22)).toFixed(1),life:5,rot:+rnd(0,TAU).toFixed(2),vr:+rnd(-3,3).toFixed(2),hot:+rnd(.6,1).toFixed(2)};k.sh=gvSh(id);gvRocks.push(k);if(MP.role==='host')MPS.gq.push({n:3,k})}
+function gvMtHost(dt,E){E.sp-=dt;if(E.sp>0)return;E.sp=.2;const pl=[];if(!(ship.docked||ship.dead>0||state==='warp'))pl.push({x:ship.x,y:ship.y});for(const r of mpTargets())pl.push({x:r.x,y:r.y});for(const q of pl)if(Math.hypot(q.x-E.zx,q.y-E.zy)<E.zr)gvAddRock(q.x,q.y,E)}
+function gvKill(id){if(MP.role==='host')MPS.gx.push({n:3,id});else if(mpSlave())MPS.gk.push(id)}
 function gevTick(dt){const E=GEV.cur;
- if((state!=='play'&&!(state==='pause'&&MP.role))||ship.dead>0||ship.docked){if(MP.role==='host'&&state!=='warp'){if(E){E.tm-=dt;if(E.tm<=0||E.k==='cv')gevEnd()}else if(GEV.t>0)GEV.t-=dt;return}if(E&&(ship.docked||ship.dead>0||state==='warp'))gevEnd();return}
- for(let i=gvRocks.length-1;i>=0;i--){const r=gvRocks[i];r.x+=r.vx*dt;r.y+=r.vy*dt;r.life-=dt;let d=0;
-  if(dist(r,ship)<r.r+14){hurt(r.r*2.2,'☄ Impacto de meteorito',Math.atan2(-r.vy,-r.vx));boom(r.x,r.y,8,'#fb8');d=1}
-  else for(const b of bullets)if(b.own==='p'&&Math.hypot(b.x-r.x,b.y-r.y)<r.r+5){b.life=0;boom(r.x,r.y,6,'#fb8');ship.scrap=(ship.scrap|0)+1;d=1;break}
-  if(d||r.life<=0)gvRocks.splice(i,1)}
+ const ok=!((state!=='play'&&!(MP.role&&(state==='pause'||state==='ship')))||ship.dead>0||ship.docked);
+ for(let i=gvRocks.length-1;i>=0;i--){const r=gvRocks[i];r.x+=r.vx*dt;r.y+=r.vy*dt;r.life-=dt;let d=0,rp=0;
+  if(ok&&dist(r,ship)<r.r+14){hurt(r.r*2.2,'☄ Impacto de meteorito',Math.atan2(-r.vy,-r.vx));boom(r.x,r.y,8,'#fb8');d=1;rp=1}
+  else for(const b of bullets)if(b.own==='p'&&Math.hypot(b.x-r.x,b.y-r.y)<r.r+5){b.life=0;boom(r.x,r.y,6,'#fb8');if(!b.gh&&!b.rb){ship.scrap=(ship.scrap|0)+1;rp=1}d=1;break}
+  if(d&&rp&&r.id)gvKill(r.id);if(d||r.life<=0)gvRocks.splice(i,1)}
+ if(!ok){if(MP.role==='host'&&state!=='warp'){if(E){E.tm-=dt;if(E.k==='mt')gvMtHost(dt,E);if(E.tm<=0||E.k==='cv')gevEnd()}else if(GEV.t>0)GEV.t-=dt;return}if(mpSlave()&&E&&E.k!=='cv'){E.tm-=dt;if(E.tm<=0)gvDone()}if(E&&!MP.role&&(ship.docked||ship.dead>0||state==='warp'))gevEnd();return}
  if(!E){GEV.t-=dt;if(GEV.t<=0)mpAt(gevPick);return}
  E.tm-=dt;
+ if(E.k==='cv'&&mpSlave())return;
  if(E.k==='cv'){const cs=npcs.filter(c=>c.gv);if(!cs.length){toast('Flota destruida');return gevEnd()}
   if(E.ph!=='go'&&cs.some(c=>c.hp<c.max-.5))return gvHostile('⚠ ¡Has disparado a la flota: contraatacan!');
   const sv=Math.hypot(ship.vx,ship.vy);E.t+=dt;
@@ -1592,12 +1632,12 @@ function gevTick(dt){const E=GEV.cur;
   if(E.ph==='arr'&&(!far||E.t>16)){E.ph='dem';E.t=0;E.lim=Math.floor(gvTot()+(ship.scrap|0))>=E.need?25:6;toast('⚠ La flota te rodea: «Entrega '+E.need+' de material o abrimos fuego»')}
   else if(E.ph==='dem'&&E.t>E.lim)gvHostile('⚠ ¡Abren fuego!')}
  else if(E.k==='st'){E.x+=E.vx*dt;E.y+=E.vy*dt;if(dist(ship,E)<E.r){ship.shd=Math.max(0,ship.shd-7*dt);E.fl-=dt;if(E.fl<=0){E.fl=rnd(2,3.5);hurt(5,null,rnd(0,TAU));boom(ship.x+rnd(-30,30),ship.y+rnd(-30,30),6,'#c9a0ff')}}if(E.tm<=0){toast('La tormenta de iones se disipa');gvDone()}}
- else if(E.k==='mt'){const inn=Math.hypot(ship.x-E.zx,ship.y-E.zy)<E.zr;if(inn!==E.in){E.in=inn;toast(inn?'☄ Vuelves a la zona de meteoritos':'✔ Has salido de la lluvia de meteoritos: estás a salvo')}E.sp-=dt;if(inn&&E.sp<=0){E.sp=.2;const c=Math.cos(E.d),s=Math.sin(E.d),o=rnd(-900,900),v=rnd(560,860);{const r=Math.random()<.22?rnd(24,36):rnd(9,22);gvRocks.push({x:ship.x-c*1500-s*o,y:ship.y-s*1500+c*o,vx:c*v,vy:s*v,r,life:5,rot:rnd(0,TAU),vr:rnd(-3,3),sh:Array.from({length:9},()=>rnd(.72,1.15)),hot:rnd(.6,1)})}}if(E.tm<=0){toast('La lluvia de meteoritos termina');gvDone()}}
+ else if(E.k==='mt'){const inn=Math.hypot(ship.x-E.zx,ship.y-E.zy)<E.zr;if(inn!==E.in){E.in=inn;toast(inn?'☄ Vuelves a la zona de meteoritos':'✔ Has salido de la lluvia de meteoritos: estás a salvo')}if(!mpSlave()){if(MP.role==='host')gvMtHost(dt,E);else{E.sp-=dt;if(inn&&E.sp<=0){E.sp=.2;gvAddRock(ship.x,ship.y,E)}}}if(E.tm<=0){toast('La lluvia de meteoritos termina');gvDone()}}
  else if(E.k==='tr'){E.a+=Math.sin(time*.25+E.sp)*.05*dt;E.vx=Math.cos(E.a)*E.sp;E.vy=Math.sin(E.a)*E.sp;E.x+=E.vx*dt;E.y+=E.vy*dt;if(!E.cx&&dist(ship,E)<650){E.cx=1;cxFind({mer:1})}if(E.tm<=0){toast('El mercader se marcha');gvDone()}}
  else if(E.k==='cr'){if(dist(ship,E)<110){const r=Math.random(),k=['fe','cu','cr','pt'][(Math.random()*4)|0],q=Math.floor(Math.min(rnd(6,12),T.cargo-ship.ore));
    if(r<.55&&q>=1){ship.inv[k]=(ship.inv[k]||0)+q;ship.ore+=q;toast('📦 Cápsula: +'+q+' de '+MIN[k][0])}else if(r<.8){const s=Math.round(rnd(15,30));ship.scrap=(ship.scrap|0)+s;toast('📦 Cápsula: +'+s+' de chatarra')}else{const c=Math.round(rnd(150,300));ship.cred+=c;toast('📦 Cápsula: +'+c+' créditos')}
    if(Math.random()<.3){gvShips(3,1,rnd(0,TAU),900);toast('⚠ ¡Era una trampa! Piratas atacan')}gvDone()}else if(E.tm<=0){toast('La cápsula se pierde en la deriva');gvDone()}}}
-function trSell(E,go){let cap=E.cap,u=0,v=0;const ks=Object.keys(ship.inv).sort((a,b)=>(MIN[b]||[0,0,1])[2]-(MIN[a]||[0,0,1])[2]);for(const k of ks){const q=Math.min(Math.floor(ship.inv[k]||0),cap);if(q<=0)continue;const pr=Math.round(C.sell*1.8*(MIN[k]?MIN[k][2]:1));u+=q;v+=q*pr;cap-=q;if(go){ship.inv[k]-=q;ship.ore=Math.max(0,ship.ore-q);if(ship.inv[k]<=.001)delete ship.inv[k]}}if(go){E.cap=cap;ship.cred+=v;ship.full=0}return{u,v}}
+function trSell(E,go){let cap=E.cap,u=0,v=0;const cap0=cap;const ks=Object.keys(ship.inv).sort((a,b)=>(MIN[b]||[0,0,1])[2]-(MIN[a]||[0,0,1])[2]);for(const k of ks){const q=Math.min(Math.floor(ship.inv[k]||0),cap);if(q<=0)continue;const pr=Math.round(C.sell*1.8*(MIN[k]?MIN[k][2]:1));u+=q;v+=q*pr;cap-=q;if(go){ship.inv[k]-=q;ship.ore=Math.max(0,ship.ore-q);if(ship.inv[k]<=.001)delete ship.inv[k]}}if(go){E.cap=cap;if(mpSlave())MPS.tc=(MPS.tc||0)+(cap0-cap);ship.cred+=v;ship.full=0}return{u,v}}
 function gevAct(a){const E=GEV.cur;if(!E)return;
  if(a==='pay'&&E.k==='cv'&&E.ph==='dem'){if(Math.floor(gvTot()+(ship.scrap|0))>=E.need)gvPay()}
  else if(a==='no'&&E.k==='cv')gvHostile('⚠ Te niegas: la flota ataca');
@@ -1851,7 +1891,7 @@ function sczExhaust(){SCZ.gone=Date.now()+(120+Math.random()*240)*1000;toast('�
 function sczMove(){for(let k=0;k<300;k++){const a=rnd(0,TAU),d=rnd(5000*UK,30000*UK),x=Math.round(Math.cos(a)*d),y=Math.round(Math.sin(a)*d);if(FIELDS.some(F=>F.ins(x,y,600))||BASES.some(b=>Math.hypot(b.x-x,b.y-y)<b.r+1800)||Math.hypot(x-SCZ.x,y-SCZ.y)<6000||Math.hypot(x-ship.x,y-ship.y)<2500)continue;SCZ.olds.push(SCZ.hk);if(SCZ.olds.length>6)SCZ.olds.shift();QX.wk=[];sczBuild(x,y,(Math.random()*1e6|0)+1);SCZ.gone=0;SCZ.w=0;toast('♻ Nuevo cementerio de naves detectado: mira el mapa');sczSave();return}SCZ.gone=Date.now()+30000}
 function drawSczOld(){for(const L of (SCZ.olds||[]))for(const[x,y,sc,sh]of L){if(!vis(x,y,200))continue;drawS(x,y,.9+x*.001,sh,'#7d8794',sc,{h:.1,p:{eng:0,eg2:0,wpn:0,min:0,jmp:0},th:0})}}
 function miniEv(dt){
-  if(state!=='menu'&&dist(ship,A)<4200){alT-=dt;if(alT<=0){alT=rnd(100,240);if(npcs.filter(q=>q.raid&&q.hp>0).length<3){const n=[1,1,2,2,3][(Math.random()*5)|0],a0=rnd(0,TAU);for(let i=0;i<n;i++){const a=a0+rnd(-.3,.3),d=2900+rnd(0,300),e=dscale(balE(mk('e',A.x+Math.cos(a)*d,A.y+Math.sin(a)*d,A)));e.raid=1;e.kc=1;e.agr=2600;npcs.push(e)}}}}
+  if(state!=='menu'&&!mpSlave()&&mpD(A)<4200){alT-=dt;if(alT<=0){alT=rnd(100,240);if(npcs.filter(q=>q.raid&&q.hp>0).length<3){const n=[1,1,2,2,3][(Math.random()*5)|0],a0=rnd(0,TAU);for(let i=0;i<n;i++){const a=a0+rnd(-.3,.3),d=2900+rnd(0,300),e=dscale(balE(mk('e',A.x+Math.cos(a)*d,A.y+Math.sin(a)*d,A)));e.raid=1;e.kc=1;e.agr=2600;npcs.push(e)}}}}
   for(const b of BASES){if(!b.small)continue;b.lc=(b.lc||0)-dt;if(b.lc>0)continue;let tg=null,td=1250+b.r;for(const n of npcs){if(n.team!=='e'||n.hp<=0||n.evs)continue;const d=dist(n,b);if(d<td){td=d;tg=n}}if(!tg)continue;
     b.lc=tg.boss?2.4:1.4;lzr.push({x1:b.x,y1:b.y,x2:tg.x,y2:tg.y,t:0,d:.5,tg});sfx('b',{x:tg.x,y:tg.y},34);
     if(tg.boss){tg.hp=Math.max(1,tg.hp-100);tg.lh=time;boom(tg.x,tg.y,14,'#9ff')}
@@ -1896,7 +1936,7 @@ function mpLoadLib(){return new Promise((ok,ko)=>{if(window.supabase)return ok()
 async function mpConnect(code){if(!SUPA_KEY)throw new Error('Falta la clave de Supabase: pégala en SUPA_KEY (código del multijugador)');await mpLoadLib();
  if(!MP.sb)MP.sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{realtime:{params:{eventsPerSecond:20}}});
  const ch=MP.sb.channel('starluge-'+code,{config:{broadcast:{self:false,ack:false},presence:{key:MP.id}}});MP.ch=ch;MP.code=code;
- ch.on('presence',{event:'sync'},mpSync).on('broadcast',{event:'join'},m=>mpOnJoin(m.payload)).on('broadcast',{event:'welcome'},m=>mpOnWelcome(m.payload)).on('broadcast',{event:'st'},m=>mpOnSt(m.payload)).on('broadcast',{event:'sv'},m=>mpOnSv(m.payload)).on('broadcast',{event:'close'},()=>mpOnClose()).on('broadcast',{event:'rs'},()=>{if(MP.role==='host')MPS.reset()}).on('broadcast',{event:'kr'},m=>mpOnKr(m.payload)).on('broadcast',{event:'cx'},m=>mpOnCx(m.payload)).on('broadcast',{event:'af'},m=>mpOnAf(m.payload)).on('broadcast',{event:'dr'},m=>mpOnDr(m.payload)).on('broadcast',{event:'tt'},m=>{const q=m.payload;if(q&&typeof q.m==='string'&&(!q.to||q.to===MP.id))toast(q.m.slice(0,100))});
+ ch.on('presence',{event:'sync'},mpSync).on('broadcast',{event:'join'},m=>mpOnJoin(m.payload)).on('broadcast',{event:'welcome'},m=>mpOnWelcome(m.payload)).on('broadcast',{event:'st'},m=>mpOnSt(m.payload)).on('broadcast',{event:'sv'},m=>mpOnSv(m.payload)).on('broadcast',{event:'close'},()=>mpOnClose()).on('broadcast',{event:'rs'},()=>{if(MP.role==='host')MPS.reset()}).on('broadcast',{event:'kr'},m=>mpOnKr(m.payload)).on('broadcast',{event:'cx'},m=>mpOnCx(m.payload)).on('broadcast',{event:'af'},m=>mpOnAf(m.payload)).on('broadcast',{event:'dr'},m=>mpOnDr(m.payload)).on('broadcast',{event:'bh'},m=>mpOnBh(m.payload)).on('broadcast',{event:'tt'},m=>{const q=m.payload;if(q&&typeof q.m==='string'&&(!q.to||q.to===MP.id))toast(q.m.slice(0,100))});
  await new Promise((ok,ko)=>{const t=setTimeout(()=>ko(new Error('Sin conexión con el servidor')),8000);ch.subscribe(s=>{if(s==='SUBSCRIBED'){clearTimeout(t);ok()}else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT'){clearTimeout(t);ko(new Error('Error de conexión con Supabase'))}})})}
 function mpBc(ev,payload){try{const p=MP.ch.send({type:'broadcast',event:ev,payload});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
 function mpReset(){const ch=MP.ch,sb=MP.sb;clearInterval(MP.tm);clearTimeout(MP.jt);clearTimeout(MP.lt);MP.lt=0;MP.tm=null;MP.role=null;MP.pvp=0;MP.peers={};MP.pend={};MP.ch=null;MP.joined=0;MP.hostGone=0;MP.big=0;for(const k in MPR)delete MPR[k];if(ch&&sb)setTimeout(()=>{try{sb.removeChannel(ch)}catch(e){}},350)}
@@ -1955,35 +1995,71 @@ async function mpPush(force){if(MP.role!=='guest'||!MP.joined||!MP.ch||MP.hostGo
 async function mpExit(){if(MPG.role==='guest'){try{saveGame();await mpPush(true);await new Promise(r=>setTimeout(r,400))}catch(e){}}else{if(MP.role==='host')mpBc('close',{});try{saveGame()}catch(e){}await new Promise(r=>setTimeout(r,300))}
  noSave=1;try{sessionStorage.removeItem('sl_mpg')}catch(e){}location.reload()}
 /* ---- estado de las naves ---- */
+/* ---- efectos de la flota (se ven igual para ti y para los demás) ---- */
+function wjCode(w){const j=w.jp;if(!j)return 0;return j.t<j.t1?1+Math.round(clamp(j.t/Math.max(.01,j.t1),0,1)*98):100}
+function mpWg(){const L=wing.filter(w=>w.hp>0).slice(0,8);for(const w of L)if(!w.uid)w.uid=++MPS.wid;return L.map(w=>{const rs=w.rg?WRS.get(w):null;return[w.uid,w.ti,Math.round(w.x),Math.round(w.y),+(w.a||0).toFixed(2),Math.round(clamp(w.hp/w.max,0,1)*100),Math.round(w.vx||0),Math.round(w.vy||0),wjCode(w),w.col==='#ff9a4f'?1:0,rs?(rs===ship?1:(rs.uid||0)+1):0]})}
+function wjDraw(x,y,a,code,vx,vy){if(!code)return;
+ if(code<100){const k=clamp((code-1)/98,0,1),o={x:ship.x,y:ship.y,w0:warp};ship.x=x;ship.y=y;warp={t:k,t1:1,te:2,h:a,dest:{n:''}};g.save();g.translate(x,y);g.scale(.55,.55);g.translate(-x,-y);try{warpFx(0)}finally{g.restore();ship.x=o.x;ship.y=o.y;warp=o.w0}return}
+ const sp=Math.hypot(vx||0,vy||0),L=Math.min(900,sp*.12),c=Math.cos(a),n=Math.sin(a);g.save();g.globalCompositeOperation='lighter';g.lineCap='round';g.strokeStyle='rgba(90,170,255,.3)';g.lineWidth=9;g.beginPath();g.moveTo(x,y);g.lineTo(x-c*L,y-n*L);g.stroke();g.strokeStyle='rgba(180,235,255,.7)';g.lineWidth=4;g.beginPath();g.moveTo(x,y);g.lineTo(x-c*L,y-n*L);g.stroke();g.restore()}
 function mpSend(){if(!MP.role||!MP.ch||state==='menu')return;
- {const P={id:MP.id,n:MP.name,ti:TYPES.indexOf(T),x:Math.round(ship.x),y:Math.round(ship.y),vx:Math.round(ship.vx||0),vy:Math.round(ship.vy||0),a:+ship.a.toFixed(2),dk:(ship.docked||state==='hangar')?1:0,dd:ship.dead>0?1:0,wk:ship.wreck?1:0,sh:MP.share?1:0};
+ {const P={id:MP.id,n:MP.name,ti:TYPES.indexOf(T),x:Math.round(ship.x),y:Math.round(ship.y),vx:Math.round(ship.vx||0),vy:Math.round(ship.vy||0),a:+ship.a.toFixed(2),dk:(ship.docked||state==='hangar')?1:0,dd:ship.dead>0?1:0,wk:ship.wreck?1:0,sh:MP.share?1:0,h:+clamp(ship.hull/T.hull,0,1).toFixed(2),pp:[ship.parts.eng,ship.parts.eg2,ship.parts.wpn,ship.parts.min,ship.parts.jmp].map(v=>Math.round(v)),cd:QX.card?1:0,eh:Math.round(ship.eh||0),er:ship.ehR>0?1:0,ek:Math.round((ship.fk||0)*100),wj:(state==='warp'&&warp)?[+warp.t.toFixed(2),+warp.t1.toFixed(2),+warp.te.toFixed(2),+warp.h.toFixed(3)]:0,bm:(ship.beam&&!ship.dead)?[Math.round(ship.beam.x),Math.round(ship.beam.y),ship.beam.c]:0,wg:mpWg()};
   if(MPS.hf&&MPS.help)P[MPS.hf]=MPS.help.id;
-  if(MPS.pb.length)P.pb=MPS.pb.splice(0,40);if(MPS.lp.length)P.lp=MPS.lp.splice(0,40);
+  if(MPS.gk.length)P.gk=MPS.gk.splice(0,40);if(MPS.tc){P.tc=MPS.tc;MPS.tc=0}if(MPS.gd){P.gd=MPS.gd;MPS.gd=0}if(MPS.pb.length)P.pb=MPS.pb.splice(0,40);if(MPS.lp.length)P.lp=MPS.lp.splice(0,40);
   {const a=Object.entries(MPS.mi);if(a.length){P.mi=a.map(([i,m])=>[+i,+m.toFixed(3)]);MPS.mi={}}const c=Object.entries(MPS.mc);if(c.length){P.mc=c.map(([i,m])=>[+i,+m.toFixed(3)]);MPS.mc={}}}
   if(MP.role==='host')P.w=mpWorld();mpBc('st',P)}}
 function mpOnSt(p){if(!p||!p.id||p.id===MP.id||!MP.role)return;let r=MPR[p.id];if(!r)r=MPR[p.id]={id:p.id,x:p.x,y:p.y,vx:0,vy:0,a:p.a};
- r.n=mpClean(p.n)||'?';r.ti=clamp(p.ti|0,0,TYPES.length-1);r.sx=p.x;r.sy=p.y;r.svx=p.vx||0;r.svy=p.vy||0;r.sa=p.a;r.dk=p.dk;r.dd=p.dd;r.wk=p.wk|0;r.rf=p.rf||0;r.tw=p.tw||0;r.sh=p.sh|0;r.t=performance.now();mpOnSt2(p)}
+ r.n=mpClean(p.n)||'?';r.ti=clamp(p.ti|0,0,TYPES.length-1);r.sx=p.x;r.sy=p.y;r.svx=p.vx||0;r.svy=p.vy||0;r.sa=p.a;r.dk=p.dk;r.dd=p.dd;r.wk=p.wk|0;r.rf=p.rf||0;r.tw=p.tw||0;r.sh=p.sh|0;r.hh=p.h!=null?p.h:1;r.pp=p.pp||null;r.cd=p.cd|0;r.eh=p.eh|0;r.er=p.er|0;r.ek=p.ek|0;{const pw=r.wj;r.wj=p.wj||0;if(pw&&!r.wj)boom(p.x,p.y,24,'#bfefff');else if(pw&&r.wj&&pw[0]<pw[1]&&r.wj[0]>=r.wj[1])boom(r.x,r.y,18,'#e8fbff')}r.bm=p.bm||0;
+ if(p.wg){const old=new Map((r.wgs||[]).map(q=>[q.u,q]));r.wgs=p.wg.map(q=>{const o=old.get(q[0])||{x:q[2],y:q[3],a:q[4]};o.u=q[0];o.ti=q[1];o.sx=q[2];o.sy=q[3];o.sa=q[4];o.h=q[5]/100;o.svx=q[6];o.svy=q[7];o.jp=q[8]|0;o.om=q[9];o.hs=q[10]|0;return o})}
+ r.t=performance.now();mpOnSt2(p)}
 const mpLive=r=>r&&r.sx!=null&&performance.now()-r.t<5000&&!r.dk&&!r.dd;
 /* ayuda entre jugadores: un amigo con Técnico repara tu nave inutilizada; cualquier nave puede remolcarte a la base */
 function mpWreckAt(x,y){if(!MP.role)return null;let b=null,bd=55/zoom;for(const k in MPR){const r=MPR[k];if(!r.wk||r.dk||r.sx==null||performance.now()-r.t>5000)continue;const d=Math.hypot(r.x-x,r.y-y);if(d<bd){bd=d;b=r}}return b}
+const MPFIX={t:8,sc:12};/* reparar a un amigo: 8 s y 12 de chatarra del que repara */
 function mpAidMenu(px,py,r){const L=[];if(ship.dead>0||ship.wreck)return toast('Tu nave está inutilizada: no puedes ayudar');
- if(T.rep)L.push(['Reparar a '+r.n,()=>mpAidStart('rf',r.id)]);L.push(['Remolcar a '+r.n,()=>mpAidStart('tw',r.id)]);
+ L.push(T.rep?['Reparar a '+r.n+' · '+MPFIX.sc+' chatarra',()=>mpAidStart('rf',r.id)]:['Reparar a '+r.n+' (solo Técnico)',()=>toast('Solo una nave Técnico puede reparar a otro jugador'),'dis']);L.push(['Remolcar a '+r.n,()=>mpAidStart('tw',r.id)]);
  if(MPS.help)L.push(['Cancelar ayuda',()=>{MPS.help=null;MPS.hf=0;if(ship.dest&&ship.dest.auto)ship.dest=null}]);ctxMenu(px,py,L)}
-function mpAidStart(k,id){if(ship.dead>0||ship.wreck||ship.docked)return toast('Despega con tu nave para ayudar');const r=MPR[id];if(!r)return;MPS.help={k,id,att:0};ship.lock=ship.mt=ship.mc=ship.orbit=null;toast(k==='rf'?'Vas a reparar a '+r.n+': acércate y quédate cerca':'Acércate a '+r.n+' para engancharlo y llévalo a una base')}
+function mpAidStart(k,id){if(ship.dead>0||ship.wreck||ship.docked)return toast('Despega con tu nave para ayudar');const r=MPR[id];if(!r)return;if(k==='rf'){if(!T.rep)return toast('Solo una nave Técnico puede reparar a otro jugador');if(ship.scrap<MPFIX.sc)return toast('Necesitas '+MPFIX.sc+' de chatarra para reparar')}MPS.help={k,id,att:0};ship.lock=ship.mt=ship.mc=ship.orbit=null;toast(k==='rf'?'Vas a reparar a '+r.n+': acércate y quédate cerca':'Acércate a '+r.n+' para engancharlo y llévalo a una base')}
 function mpAidTick(dt){const h=MPS.help;MPS.hf=0;if(!h)return;const r=MPR[h.id];
  if(!r||performance.now()-r.t>6000||ship.wreck||ship.dead>0){MPS.help=null;return}
  if(!r.wk){toast(r.n+' vuelve a estar operativo');MPS.help=null;if(ship.dest&&ship.dest.auto)ship.dest=null;return}
  const d=dist(ship,r);
- if(h.k==='rf'){if(d>130)ship.dest={x:r.x,y:r.y,stop:80,auto:1};else{if(ship.dest&&ship.dest.auto)ship.dest=null;if(Math.hypot(ship.vx,ship.vy)<90)MPS.hf='rf'}if(d>700)MPS.help=null}
+ if(h.k==='rf'){if(d>130)ship.dest={x:r.x,y:r.y,stop:80,auto:1};else{if(ship.dest&&ship.dest.auto)ship.dest=null;if(Math.hypot(ship.vx,ship.vy)<90){if(ship.scrap<=0&&(MPS.sa||0)<1){toast('Sin chatarra: la reparación se detiene');MPS.help=null;MPS.hf=0;return}MPS.hf='rf';MPS.sa=(MPS.sa||0)+MPFIX.sc/MPFIX.t*dt;while(MPS.sa>=1&&ship.scrap>0){MPS.sa--;ship.scrap--}}}if(d>700)MPS.help=null}
  else{if(!h.att){if(d<170){h.att=1;toast('Remolque enganchado: llévalo a una base')}else ship.dest={x:r.x,y:r.y,stop:90,auto:1}}if(h.att){if(d<450)MPS.hf='tw';else{h.att=0;toast('Remolque soltado: te has alejado demasiado')}}}}
 function mpAid(){if(!MP.role)return null;const now=performance.now();for(const k in MPR){const r=MPR[k];if(now-r.t>3000)continue;if(r.rf===MP.id&&dist(r,ship)<260)return{r,k:'rf'};if(r.tw===MP.id&&dist(r,ship)<480)return{r,k:'tw'}}return null}
+function mpRope(ax,ay,bx,by,rf){g.save();g.lineCap='round';const dd=Math.hypot(bx-ax,by-ay)||1,nx=-(by-ay)/dd,ny=(bx-ax)/dd;
+ if(rf){g.globalCompositeOperation='lighter';g.strokeStyle='rgba(199,146,255,.28)';g.lineWidth=9;g.beginPath();g.moveTo(ax,ay);g.lineTo(bx,by);g.stroke();g.strokeStyle='rgba(235,215,255,'+(.6+.35*Math.sin(time*30))+')';g.lineWidth=2.2;g.beginPath();g.moveTo(ax,ay);g.lineTo(bx,by);g.stroke();g.fillStyle='rgba(235,215,255,.9)';g.beginPath();g.arc(bx,by,4+2*Math.sin(time*20),0,TAU);g.fill()}
+ else{for(const o of[-1,1]){g.strokeStyle='rgba(255,209,102,.7)';g.lineWidth=2.2;g.beginPath();g.moveTo(ax+nx*o*7,ay+ny*o*7);g.lineTo(bx+nx*o*3,by+ny*o*3);g.stroke()}g.strokeStyle='rgba(255,240,180,'+(.5+.4*Math.sin(time*18))+')';g.lineWidth=1.4;g.setLineDash([6,10]);g.lineDashOffset=-time*140;g.beginPath();g.moveTo(ax,ay);g.lineTo(bx,by);g.stroke();g.setLineDash([]);g.fillStyle='rgba(255,209,102,.9)';g.beginPath();g.arc(ax,ay,3.5,0,TAU);g.fill();g.beginPath();g.arc(bx,by,3.5,0,TAU);g.fill()}
+ g.restore()}
 function mpWreckDraw(){if(!MP||!MP.role)return;const now=performance.now();for(const k in MPR){const r=MPR[k];if(r.sx==null||now-r.t>5000)continue;
-  if(r.wk&&!r.dk&&vis(r.x,r.y,120)){const t=TYPES[r.ti]||TYPES[0];drawS(r.x,r.y,r.a,t.sh,'#8a8f99',1.1);txt(r.n+' · INUTILIZADA',r.x,r.y-30,'#ffd166','center',Math.round(11/Math.max(.4,zoom)))}
-  const id=r.tw||r.rf;if(id){const o=id===MP.id?ship:MPR[id];if(o){g.save();g.strokeStyle=r.rf?'#c792ff':'#7dff9b';g.globalAlpha=.7;g.lineWidth=2;g.setLineDash(r.rf?[4,4]:[]);g.beginPath();g.moveTo(r.x,r.y);g.lineTo(o.x,o.y);g.stroke();g.restore()}}}}
-function mpStep(dt){mpAidTick(dt);const now=performance.now(),k2=Math.min(1,10*dt);for(const k in MPR){const r=MPR[k];if(r.sx==null)continue;const age=Math.min(.4,(now-r.t)/1000);r.vx=r.svx;r.vy=r.svy;r.x+=(r.sx+r.svx*age-r.x)*k2;r.y+=(r.sy+r.svy*age-r.y)*k2;r.a+=angDiff(r.a,r.sa)*k2}}
-function mpDraw(){if(!MP||!MP.role)return;mpWreckDraw();for(const k in MPR){const r=MPR[k];if(!mpLive(r)||!vis(r.x,r.y,90))continue;const t=TYPES[r.ti]||TYPES[0];drawS(r.x,r.y,r.a,t.sh,t.col,1.1);txt(r.n,r.x,r.y-30,'#cfe8ff','center',Math.round(11/Math.max(.4,zoom)))}}
-function mpMini(X,Y,m){if(!MP||!MP.role)return;const cx=m.x+m.w/2,cy=m.y+m.h/2,hw=m.w/2-4;for(const k in MPR){const r=MPR[k];if(!mpLive(r)||!r.sh)continue;let dx=X(r.x)-cx,dy=Y(r.y)-cy;const mx=Math.max(Math.abs(dx),Math.abs(dy)),out=mx>hw;if(out){dx*=hw/mx;dy*=hw/mx}
- g.fillStyle=out?'rgba(0,0,0,0)':'#7dff9b';g.strokeStyle='#7dff9b';g.lineWidth=1.5;g.fillRect(cx+dx-3,cy+dy-3,6,6);if(out)g.strokeRect(cx+dx-3,cy+dy-3,6,6);txt((r.n||'?').slice(0,6),cx+dx,cy+dy-6,'#7dff9b','center',8)}}
+  if(r.wk&&!r.dk&&vis(r.x,r.y,120)){const t=TYPES[r.ti]||TYPES[0];drawS(r.x,r.y,r.a,t.sh,'#8a8f99',1.1,DEAD);if(Math.sin(time*6)>0){g.fillStyle='#ffb347';g.fillRect(r.x-3,r.y-3,6,6)}txt(r.n+' · INUTILIZADA',r.x,r.y-30,'#ffd166','center',Math.round(11/Math.max(.4,zoom)))}
+  const id=r.tw||r.rf;if(id){const o=id===MP.id?ship:MPR[id];if(o)mpRope(r.x,r.y,o.x,o.y,!!r.rf)}}
+ const h=MPS.help;if(h&&MPS.hf&&!ship.wreck){const o=MPR[h.id];if(o)mpRope(ship.x,ship.y,o.x,o.y,h.k==='rf')}}
+function mpAs(r,f){const o={x:ship.x,y:ship.y,vx:ship.vx,vy:ship.vy,a:ship.a,eh:ship.eh,ehR:ship.ehR,ft:ship.ft,T0:T,w0:warp};ship.x=r.x;ship.y=r.y;ship.vx=r.svx||0;ship.vy=r.svy||0;ship.a=r.a||0;ship.eh=r.eh||0;ship.ehR=r.er?1:0;ship.ft=r.ft||[];T=TYPES[r.ti]||TYPES[0];warp=null;try{f()}finally{ship.x=o.x;ship.y=o.y;ship.vx=o.vx;ship.vy=o.vy;ship.a=o.a;ship.eh=o.eh;ship.ehR=o.ehR;ship.ft=o.ft;T=o.T0;warp=o.w0}}
+function mpFxStep(r,dt,age,k2){const sh=(TYPES[r.ti]||{}).sh;if(sh==='e'||r.ft){r.ft=(r.ft||[]).filter(q=>(q.t+=dt)<1.3);if(sh==='e'&&r.ek>1&&!r.dk&&!r.dd&&performance.now()-r.t<2000)r.ft.push({x:r.x,y:r.y,a:r.a,k:r.ek/100,kw:0,t:0})}
+ if(r.wgs)for(const o of r.wgs){o.x+=(o.sx+o.svx*age-o.x)*k2;o.y+=(o.sy+o.svy*age-o.y)*k2;o.a+=angDiff(o.a,o.sa)*k2}}
+function mpWarpFx(r){const wj=r.wj;if(!wj)return;const t=wj[0]+(performance.now()-r.t)/1000,t1=wj[1],te=wj[2],h=wj[3];
+ if(t<t1){mpAs(r,()=>{warp={t,t1,te,h,dest:{n:''}};try{warpFx(0)}finally{warp=null}});return}
+ const sp=Math.hypot(r.svx||0,r.svy||0),L=clamp(sp*.22,0,2200),c=Math.cos(h),n=Math.sin(h);g.save();g.globalCompositeOperation='lighter';g.lineCap='round';
+ {const t2=g.createLinearGradient(r.x,r.y,r.x-c*L,r.y-n*L);t2.addColorStop(0,'rgba(90,170,255,.35)');t2.addColorStop(1,'rgba(90,170,255,0)');g.strokeStyle=t2;g.lineWidth=22;g.beginPath();g.moveTo(r.x,r.y);g.lineTo(r.x-c*L,r.y-n*L);g.stroke()}
+ const tr=g.createLinearGradient(r.x,r.y,r.x-c*L,r.y-n*L);tr.addColorStop(0,'rgba(190,240,255,.95)');tr.addColorStop(1,'rgba(160,230,255,0)');g.strokeStyle=tr;g.lineWidth=8;g.beginPath();g.moveTo(r.x,r.y);g.lineTo(r.x-c*L,r.y-n*L);g.stroke();g.restore()}
+function mpBeamDraw(r){const b=r.bm;if(!b)return;const col=/^#[0-9a-f]{3,8}$/i.test(String(b[2]))?b[2]:'#ffd166',x=+b[0],y=+b[1];if(!isFinite(x)||!isFinite(y)||Math.hypot(x-r.x,y-r.y)>2500)return;g.save();g.strokeStyle=col;g.globalAlpha=.5+.4*Math.sin(time*30);g.lineWidth=2;g.beginPath();g.moveTo(r.x,r.y);g.lineTo(x,y);g.stroke();g.restore()}
+function mpStep(dt){mpAidTick(dt);const now=performance.now(),k2=Math.min(1,10*dt);for(const k in MPR){const r=MPR[k];if(r.sx==null)continue;const age=Math.min(.4,(now-r.t)/1000);r.vx=r.svx;r.vy=r.svy;r.x+=(r.sx+r.svx*age-r.x)*k2;r.y+=(r.sy+r.svy*age-r.y)*k2;r.a+=angDiff(r.a,r.sa)*k2;mpFxStep(r,dt,age,k2)}}
+function mpDraw(){if(!MP||!MP.role)return;mpWreckDraw();const now=performance.now();
+ for(const k in MPR){const r=MPR[k];
+  if(r.wgs&&now-r.t<5000)for(const o of r.wgs){if(!vis(o.x,o.y,120))continue;const t=TYPES[o.ti]||TYPES[0];
+   if(o.jp)wjDraw(o.x,o.y,o.a,o.jp,o.svx,o.svy);if(o.hs){const hq=o.hs===1?r:(r.wgs||[]).find(q=>q.u===o.hs-1);if(hq)mpRope(hq.x,hq.y,o.x,o.y,true)}
+   drawS(o.x,o.y,o.a,t.sh,o.om?'#ff9a4f':t.col,.9,{h:o.h,th:.5})}
+  if(!mpLive(r))continue;
+  if(r.wj)mpWarpFx(r);
+  if(!vis(r.x,r.y,90)&&!(r.ft&&r.ft.length>1)&&!r.wj)continue;const t=TYPES[r.ti]||TYPES[0],hot=t.sh==='e'&&(r.er||r.eh>0);
+  if(t.sh==='e'&&!r.wj)mpAs(r,()=>fxTrail());
+  if(!vis(r.x,r.y,90))continue;
+  drawS(r.x,r.y,r.a,t.sh,hot?hexMix(t.col,'#ff2a1a',r.er?1:r.eh/100):t.col,1.1,mpSt(r));
+  if(hot)mpAs(r,()=>heatGlow());
+  mpBeamDraw(r);
+  txt(r.n+(r.hh<.995?' · '+Math.round(r.hh*100)+'%':''),r.x,r.y-30,r.hh<.4?'#ffd166':'#cfe8ff','center',Math.round(11/Math.max(.4,zoom)))}}
+function mpMini(X,Y,m){if(!MP||!MP.role)return;const cx=m.x+m.w/2,cy=m.y+m.h/2,hw=m.w/2-4;for(const k in MPR){const r=MPR[k];if(r.sx==null||!r.sh||performance.now()-r.t>8000)continue;const c=r.wk?'#ffd166':r.dk?'#4fd1ff':'#7dff9b';let dx=X(r.x)-cx,dy=Y(r.y)-cy;const mx=Math.max(Math.abs(dx),Math.abs(dy)),out=mx>hw;if(out){dx*=hw/mx;dy*=hw/mx}
+ g.fillStyle=out?'rgba(0,0,0,0)':c;g.strokeStyle=c;g.lineWidth=1.5;g.fillRect(cx+dx-3,cy+dy-3,6,6);if(out)g.strokeRect(cx+dx-3,cy+dy-3,6,6);txt((r.n||'?').slice(0,6),cx+dx,cy+dy-6,c,'center',8)}}
 function mpHud(){if(!MP||!MP.role||state!=='play')return;if(MP.lt)txt('⚠ Anfitrión sin conexión · esperando '+Math.max(0,Math.ceil(30-(performance.now()-MP.lts)/1000))+' s',W/2,60,'#ffd166','center',12);txt('SALA '+MP.code+' · '+Object.keys(MP.peers).length+'/4'+(MP.pvp?' · PVP':'')+(MP.hostGone?' · SIN ANFITRIÓN':''),W/2,44,MP.hostGone?'#ff6b6b':'#7dff9b','center',11)}
 /* ---- interfaz ---- */
 function mpMsg(t){MP.msg=t||'';const e=$('mpSt');if(e)e.textContent=MP.msg}
@@ -2006,7 +2082,7 @@ function mpRender(){const b=$('mpBody');if(!b)return;const inR=!!MP.role;
   h+=`<label>Unirse con código</label><input id="mpCode" class="mpin" maxlength="6" autocomplete="off" spellcheck="false" placeholder="ABC234" style="text-transform:uppercase;letter-spacing:.3em"><button class="sq" data-a="join" style="margin-top:8px">Unirse a la sala</button>`}
  h+=`<div id="mpSt" class="mpH">${mpEsc(MP.msg||'')}</div>`;b.innerHTML=h;mpRenderList()}
 function mpRenderList(){const e=$('mpL');if(!e||!MP.role)return;const ps=Object.values(MP.peers);
- let h=ps.map(q=>{const me=q.id===MP.id,r=MPR[q.id],d=me?'tú':r&&r.sx!=null?(r.dk?'atracado':r.sh?km(dist(ship,r)):'ubicación oculta'):'—';return `<div><span>${mpEsc(q.n)}${q.h?' · anfitrión':''}</span><span style="opacity:.7">${d}</span></div>`}).join('');
+ let h=ps.map(q=>{const me=q.id===MP.id,r=MPR[q.id],d=me?'tú':r&&r.sx!=null?(r.dk?'atracado':r.sh?km(dist(ship,r)):'ubicación oculta'):'—';return `<div><span>${mpEsc(q.n)}${q.h?' · anfitrión':''}${(me?QX.card:r&&r.cd)?' · 🔑 Omega':''}</span><span style="opacity:.7">${d}</span></div>`}).join('');
  if(!ps.length)h='<div><span style="opacity:.6">Conectando…</span></div>';
  h+=`<div style="border:0"><span style="opacity:.6">${ps.length}/4 jugadores</span></div>`;if(MP.hostGone)h+='<div style="border:0;color:#ff6b6b">El anfitrión ya no está en la sala</div>';
  e.innerHTML=h}
