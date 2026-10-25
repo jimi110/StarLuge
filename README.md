@@ -87,7 +87,7 @@ El anfitrión calcula los enemigos. Con 2 jugadores aparecen el doble de piratas
 - Los invitados no tienen el mundo: solo anotan en su lista la sala (código y nombre del anfitrión). Su progreso lo guarda el anfitrión y se les devuelve al entrar.
 - La sala **no está abierta 24 h**: solo funciona mientras el anfitrión tiene el juego abierto con la sala abierta. Cuando la vuelve a abrir, los invitados entran con el mismo código (o desde su lista) y recuperan su progreso.
 - Tu partida en **solitario** es independiente y nunca se toca.
-- Si el anfitrión **cierra la sala** (o se desconecta más de ~8 s), los invitados son expulsados a su menú.
+- Si el anfitrión **cierra la sala** (o se desconecta más de ~30 s (tiempo de tregua para cortes de internet; si vuelve antes, no pasa nada)), los invitados son expulsados a su menú.
 
 ### Ubicación en el mapa
 
@@ -95,7 +95,7 @@ Los demás jugadores **no aparecen en el mapa ni en el minimapa**, a no ser que 
 
 ### El tutorial
 
-En multijugador no se muestra el tutorial de escoltas.
+En multijugador no hay modo historia: no se ven el panel de misiones, los capítulos ni las recompensas de misión (las misiones siguen avanzando en segundo plano para desbloquear zonas y dificultad). Los tutoriales de uso sí aparecen. El tutorial de escoltas no se muestra.
 
 ### Configurar Supabase (una sola vez)
 
