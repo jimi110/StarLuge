@@ -1868,6 +1868,7 @@ function drawLz(){if(!lzr||!lzr.length)return;const u=1/zoom;g.save();g.globalCo
      (sl_mp_games = lista, sl_mp_prof_<id> = fichas de todos los que han jugado, starluge_mph_<id> = su nave).
    · El invitado guarda en su lista (sl_mp_joined) la partida con el nombre del anfitrión y sus amigos; su ficha vive en el anfitrión.
    · Se ven y chocan entre sí; enemigos, asteroides y eventos siguen siendo locales (siguiente paso).
+   · Supabase NO guarda nada: solo reenvía mensajes en vivo. El mundo y el progreso de todos viven en el dispositivo del anfitrión.
    · Sin tablas: solo canales Broadcast + Presence de Supabase Realtime. Pega tu clave pública en SUPA_KEY. */
 var SUPA_URL='https://xjnldzitsueltueqowho.supabase.co',SUPA_KEY='sb_publishable_-byS6FlxLmBlZr5hVzk9Ww_96OlhYuv';
 var mpOpen=0,mpLastPush=0;
@@ -1896,10 +1897,10 @@ async function mpConnect(code){if(!SUPA_KEY)throw new Error('Falta la clave de S
  ch.on('presence',{event:'sync'},mpSync).on('broadcast',{event:'join'},m=>mpOnJoin(m.payload)).on('broadcast',{event:'welcome'},m=>mpOnWelcome(m.payload)).on('broadcast',{event:'st'},m=>mpOnSt(m.payload)).on('broadcast',{event:'sv'},m=>mpOnSv(m.payload)).on('broadcast',{event:'close'},()=>mpOnClose()).on('broadcast',{event:'rs'},()=>{if(MP.role==='host')MPS.reset()}).on('broadcast',{event:'kr'},m=>mpOnKr(m.payload)).on('broadcast',{event:'cx'},m=>mpOnCx(m.payload)).on('broadcast',{event:'af'},m=>mpOnAf(m.payload)).on('broadcast',{event:'dr'},m=>mpOnDr(m.payload)).on('broadcast',{event:'tt'},m=>{const q=m.payload;if(q&&typeof q.m==='string'&&(!q.to||q.to===MP.id))toast(q.m.slice(0,100))});
  await new Promise((ok,ko)=>{const t=setTimeout(()=>ko(new Error('Sin conexión con el servidor')),8000);ch.subscribe(s=>{if(s==='SUBSCRIBED'){clearTimeout(t);ok()}else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT'){clearTimeout(t);ko(new Error('Error de conexión con Supabase'))}})})}
 function mpBc(ev,payload){try{const p=MP.ch.send({type:'broadcast',event:ev,payload});if(p&&p.catch)p.catch(()=>{})}catch(e){}}
-function mpReset(){const ch=MP.ch,sb=MP.sb;clearInterval(MP.tm);clearTimeout(MP.jt);MP.tm=null;MP.role=null;MP.pvp=0;MP.peers={};MP.pend={};MP.ch=null;MP.joined=0;MP.hostGone=0;MP.big=0;for(const k in MPR)delete MPR[k];if(ch&&sb)setTimeout(()=>{try{sb.removeChannel(ch)}catch(e){}},350)}
+function mpReset(){const ch=MP.ch,sb=MP.sb;clearInterval(MP.tm);clearTimeout(MP.jt);clearTimeout(MP.lt);MP.lt=0;MP.tm=null;MP.role=null;MP.pvp=0;MP.peers={};MP.pend={};MP.ch=null;MP.joined=0;MP.hostGone=0;MP.big=0;for(const k in MPR)delete MPR[k];if(ch&&sb)setTimeout(()=>{try{sb.removeChannel(ch)}catch(e){}},350)}
 function mpStart(){if(MP.tm)return;MP.tm=setInterval(mpSend,110)}
 function mpSync(){if(!MP.ch)return;const st=MP.ch.presenceState(),p={};for(const k in st){const e=st[k][0];if(e)p[k]={n:e.n,h:e.h,id:k}}MP.peers=p;for(const k in MPR)if(!p[k])delete MPR[k];
- if(MP.role==='guest'&&MP.joined&&!MP.hostGone&&!Object.values(p).some(q=>q.h))mpOnClose();mpRenderList()}
+ if(MP.role==='guest'&&MP.joined&&!MP.hostGone){if(Object.values(p).some(q=>q.h)){if(MP.lt){clearTimeout(MP.lt);MP.lt=0}}else if(!MP.lt)MP.lt=setTimeout(()=>{MP.lt=0;if(MP.role==='guest'&&!Object.values(MP.peers).some(q=>q.h))mpOnClose()},8000)}mpRenderList()}
 /* ---- anfitrión: abrir la sala de la partida y atender peticiones ---- */
 async function mpOpenRoom(auto){if(MP.busy||MP.role||!MPG||MPG.role!=='host')return;MP.busy=1;MP.id=MPG.id||mpId();MP.name=MPG.name||mpName();MP.role='host';mpMsg('Abriendo sala…');
  try{await mpConnect(MPG.code);await MP.ch.track({n:MP.name,h:1,id:MP.id});mpStart();mpMsg('');toast('Sala abierta · código '+MP.code)}catch(e){mpReset();mpMsg(e.message||'Error');if(auto)toast(e.message||'No se pudo abrir la sala')}MP.busy=0;if(mpOpen)mpRender()}
@@ -1945,7 +1946,7 @@ async function mpOnWelcome(p){if(!p||p.to!==MP.id||MP.role!=='guest'||MP.joined)
 async function mpResume(){if(MPG.role==='host')return mpOpenRoom(true);MP.id=MPG.id;MP.name=MPG.name;MP.role='guest';MP.joined=0;MP.hostGone=0;
  try{await mpConnect(MPG.code);await MP.ch.track({n:MP.name,h:0,id:MP.id});mpStart();await new Promise(r=>setTimeout(r,600));mpBc('join',{id:MP.id,n:MP.name});
   MP.jt=setTimeout(()=>{if(!MP.joined){MP.hostGone=1;toast('El anfitrión no está en la sala: sigues en tu copia local');mpRender()}},7000)}catch(e){MP.hostGone=1;toast(e.message||'Sin conexión con la sala')}}
-function mpOnClose(){if(MP.role!=='guest'||MP.hostGone)return;MP.hostGone=1;for(const k in MPR)delete MPR[k];toast('El anfitrión cerró la sala: sigues en tu copia local');mpRender()}
+function mpOnClose(){if(MP.role!=='guest'||MP.hostGone)return;MP.hostGone=1;for(const k in MPR)delete MPR[k];try{saveGame()}catch(e){}try{alert('El anfitrión ha cerrado la sala. Tu progreso de esta partida queda guardado en tu dispositivo.')}catch(e){}noSave=1;try{sessionStorage.removeItem('sl_mpg')}catch(e){}location.reload()}
 async function mpPush(force){if(MP.role!=='guest'||!MP.joined||!MP.ch||MP.hostGone)return;const now=Date.now();if(!force&&now-mpLastPush<8000)return;mpLastPush=now;let raw=null;try{raw=localStorage.getItem(SAVEK)}catch(e){}if(!raw)return;
  const z=await mpZip(raw);if(z.length>240000){if(!MP.big){MP.big=1;toast('Tu progreso es demasiado grande para sincronizarlo con el anfitrión')}return}mpBc('sv',{id:MP.id,n:MP.name,z})}
 /* salir de la partida multijugador y volver al menú */

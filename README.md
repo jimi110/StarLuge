@@ -79,6 +79,16 @@ Si la nave de un amigo queda inutilizada la verás en gris con «INUTILIZADA»:
 
 El anfitrión calcula los enemigos. Con 2 jugadores aparecen el doble de piratas (topes y frecuencia) y con más vida y un 50 % más de daño; con 3 y 4 se escala igual (×3, ×4 en cantidad y vida; +100 % y +150 % de daño).
 
+### Dónde se guardan los datos
+
+**Supabase no guarda nada**: solo hace de «cable» en directo (Realtime) mientras jugáis. No hay tablas ni base de datos.
+
+- El **anfitrión** es el dueño del mundo: en su dispositivo se guarda su progreso y la ficha de cada jugador que ha entrado (su nombre y todo lo que ha hecho).
+- Los invitados no tienen el mundo: solo anotan en su lista la sala (código y nombre del anfitrión). Su progreso lo guarda el anfitrión y se les devuelve al entrar.
+- La sala **no está abierta 24 h**: solo funciona mientras el anfitrión tiene el juego abierto con la sala abierta. Cuando la vuelve a abrir, los invitados entran con el mismo código (o desde su lista) y recuperan su progreso.
+- Tu partida en **solitario** es independiente y nunca se toca.
+- Si el anfitrión **cierra la sala** (o se desconecta más de ~8 s), los invitados son expulsados a su menú.
+
 ### Ubicación en el mapa
 
 Los demás jugadores **no aparecen en el mapa ni en el minimapa**, a no ser que pulses **«Mi ubicación: OCULTA/VISIBLE»** en el mapa. Solo se ve a quien lo ha activado. En el espacio, si estás cerca de otro jugador, lo ves igualmente.
@@ -133,7 +143,6 @@ git push -u origin main
 - Los cometas y los eventos aparecen cerca de un jugador elegido al azar y solo ese jugador recibe el aviso. La flota desconocida también: si el objetivo es el anfitrión en solitario pide peaje como siempre; si es otro jugador, o si hay jugadores a menos de unos 1800 u entre sí, llega como flota hostil con más naves (+3 por cada jugador extra) y los rodea a todos.
 - La guardia de Alfa y Omega persigue solo a quien les ataca.
 - Las piezas del Cementerio de naves y las misiones son personales.
-- Si el anfitrión se desconecta, los invitados siguen en su copia local sin el mundo compartido.
 
 ## Licencia
 
